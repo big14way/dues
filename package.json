@@ -1,0 +1,34 @@
+{
+  "name": "dues",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One checkout button. Any wallet, any chain. Settles in USDC on NEAR.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build:contract": "node scripts/build-contracts.mjs",
+    "test:contract": "cd contracts && cargo test",
+    "build:widget": "pnpm --filter @dues/widget build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run",
+    "check": "pnpm build:contract && pnpm test:contract && pnpm typecheck && pnpm test",
+    "demo:dry": "pnpm build:contract && tsx scripts/demo-dry.ts",
+    "sandbox": "pnpm build:contract && pnpm build:widget && tsx scripts/sandbox.ts",
+    "dev": "pnpm --filter @dues/app dev",
+    "relayer": "pnpm --filter @dues/relayer start",
+    "watcher": "pnpm --filter @dues/watcher start",
+    "deploy:testnet": "pnpm build:contract && tsx scripts/deploy-testnet.ts"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "near-api-js": "7.4.0",
+    "near-sandbox": "0.3.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
+  }
+}

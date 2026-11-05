@@ -1,0 +1,17 @@
+{
+  "name": "@dues/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./near": "./src/near.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "near-api-js": "7.4.0"
+  }
+}
