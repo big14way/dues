@@ -12,3 +12,4 @@ app/public/dues-config.json
 .dues/
 out/
 *.tsbuildinfo
+!.env.example

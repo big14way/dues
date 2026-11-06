@@ -25,7 +25,9 @@
     "accounts:testnet": "tsx scripts/create-testnet-accounts.ts",
     "testnet:flow": "tsx scripts/testnet-flow.ts",
     "lock:testnet": "tsx scripts/lock-testnet.ts",
-    "api": "pnpm --filter @dues/api start"
+    "api": "pnpm --filter @dues/api start",
+    "deploy:web": "bash scripts/deploy-web.sh",
+    "build:app": "pnpm build:widget && pnpm --filter @dues/app build"
   },
   "devDependencies": {
     "@types/node": "26.6.6",
