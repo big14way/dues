@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import { mapStatus, verifyAgainstInvoice } from '@dues/core';
 import { callWithHash, type DuesView } from '@dues/core/near';
 import type { Account } from 'near-api-js';
+import { checkClientTx, fetchTx } from './direct';
 import { isDryAddress, type StatusSource } from './sources';
 import type { Watcher } from './watcher';
 
@@ -13,12 +14,18 @@ export interface WatcherHttpDeps {
   source: StatusSource;
   corsOrigin?: string | boolean;
   logger?: boolean;
+  /**
+   * Serverless hosting has no background loop: when true, every GET /status
+   * also checks that address and reports a final outcome on-chain.
+   */
+  settleOnRead?: boolean;
 }
 
 /**
  * Small HTTP surface for the checkout:
  *  GET  /status?depositAddress=  last status the watcher saw (or 1Click live), same shape as 1Click
  *  POST /track {invoiceId, depositAddress}  ties a 1Click deposit address to an invoice
+ *  POST /annotate {invoiceId, hash}  records the NEAR tx of a client payment, funding or withdrawal, after checking it on-chain
  *  GET  /flagged  invoices that need a human
  */
 export async function buildWatcherServer(deps: WatcherHttpDeps): Promise<FastifyInstance> {
@@ -32,6 +39,7 @@ export async function buildWatcherServer(deps: WatcherHttpDeps): Promise<Fastify
   app.get('/status', async (req, reply) => {
     const addr = (req.query as { depositAddress?: string }).depositAddress;
     if (!addr) return reply.code(400).send({ message: 'depositAddress is required' });
+    if (deps.settleOnRead) await deps.loop.checkAddress(addr);
     const seen = deps.loop.statusForAddress(addr);
     if (seen) return seen;
     if (deps.source.kind === 'live') {
@@ -77,6 +85,32 @@ export async function buildWatcherServer(deps: WatcherHttpDeps): Promise<Fastify
       deposit_addr: depositAddress,
     });
     return { ok: true, hash };
+  });
+
+  app.post('/annotate', async (req, reply) => {
+    const { invoiceId, hash } = (req.body ?? {}) as { invoiceId?: number; hash?: string };
+    if (typeof invoiceId !== 'number' || typeof hash !== 'string' || !/^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(hash)) {
+      return reply.code(400).send({ error: 'invoiceId (number) and hash (base58 NEAR tx hash) are required' });
+    }
+    const inv = await deps.dues.invoice(invoiceId);
+    if (!inv) return reply.code(404).send({ error: 'no such invoice' });
+    if (!inv.client) return reply.code(409).send({ error: 'invoice has no payer yet' });
+    if (inv.txs.some((t) => t.hash === hash)) return { ok: true, already: true };
+    const { usdc_id: usdcId } = await deps.dues.config();
+    let tx;
+    try {
+      tx = await fetchTx(deps.dues.provider, hash, inv.client);
+    } catch (e) {
+      return reply.code(404).send({ error: `transaction not found: ${(e as Error).message}` });
+    }
+    const check = checkClientTx(tx, inv, { usdcId, duesId: deps.dues.contractId });
+    if (!check.ok) return reply.code(400).send({ error: check.reason });
+    const res = await callWithHash(deps.watcher, deps.dues.contractId, 'annotate_tx', {
+      id: invoiceId,
+      index: check.index,
+      hash,
+    });
+    return { ok: true, hash: res.hash };
   });
 
   return app;

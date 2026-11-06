@@ -40,6 +40,8 @@ export class Watcher {
   readonly lastSeen = new Map<number, StatusResponse>();
   readonly flagged = new Map<number, string>();
   private lastStatus = new Map<number, string>();
+  /** Invoices being checked right now: the poll loop and the status endpoint never report one twice. */
+  private busy = new Set<number>();
 
   constructor(private readonly deps: WatcherDeps) {}
 
@@ -55,14 +57,38 @@ export class Watcher {
     };
     const open = await this.deps.dues.openDeposits();
     for (const inv of open) {
-      if (!inv.deposit_addr || this.flagged.has(inv.id)) continue;
-      try {
-        await this.check(inv, inv.deposit_addr, push);
-      } catch (e) {
-        push({ type: 'error', invoiceId: inv.id, error: (e as Error).message });
-      }
+      if (!inv.deposit_addr) continue;
+      await this.guarded(inv, inv.deposit_addr, push);
     }
     return events;
+  }
+
+  /**
+   * Checks one deposit address now. Lets a serverless status endpoint settle
+   * invoices as the payer's page polls, with no background loop.
+   */
+  async checkAddress(depositAddress: string): Promise<WatcherEvent[]> {
+    const events: WatcherEvent[] = [];
+    const open = await this.deps.dues.openDeposits();
+    const inv = open.find((i) => i.deposit_addr === depositAddress);
+    if (!inv) return events;
+    await this.guarded(inv, depositAddress, (e) => {
+      events.push(e);
+      this.emit(e);
+    });
+    return events;
+  }
+
+  private async guarded(inv: Invoice, addr: string, push: (e: WatcherEvent) => void) {
+    if (this.flagged.has(inv.id) || this.busy.has(inv.id)) return;
+    this.busy.add(inv.id);
+    try {
+      await this.check(inv, addr, push);
+    } catch (e) {
+      push({ type: 'error', invoiceId: inv.id, error: (e as Error).message });
+    } finally {
+      this.busy.delete(inv.id);
+    }
   }
 
   private async check(inv: Invoice, addr: string, push: (e: WatcherEvent) => void) {
