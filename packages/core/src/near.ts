@@ -120,17 +120,30 @@ export async function signForRelay(
   return base64Encode(encodeSignedDelegate(signedDelegate));
 }
 
-/** Posts a signed delegate to a Dues relayer. */
-export async function relay(
-  relayerUrl: string,
-  signedDelegate: string,
-): Promise<{ hash: string; status: string; value?: unknown }> {
+export interface RelayResult {
+  hash: string;
+  /** "success", or "failure" when the relayed call itself failed on-chain. */
+  status: string;
+  value?: unknown;
+  error?: string;
+  /** Set when the relayer also registered the sender with USDC. */
+  registeredHash?: string;
+}
+
+/** Posts a signed delegate to a Dues relayer. Throws when the relayer refuses it. */
+export async function relay(relayerUrl: string, signedDelegate: string): Promise<RelayResult> {
   const res = await fetch(`${relayerUrl.replace(/\/$/, '')}/relay`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ signedDelegate }),
   });
-  const body = (await res.json()) as { hash?: string; status?: string; value?: unknown; error?: string };
+  const body = (await res.json()) as Partial<RelayResult> & { code?: string };
   if (!res.ok || !body.hash) throw new Error(body.error ?? `relayer answered ${res.status}`);
-  return { hash: body.hash, status: body.status ?? 'unknown', value: body.value };
+  return {
+    hash: body.hash,
+    status: body.status ?? 'unknown',
+    value: body.value,
+    error: body.error,
+    registeredHash: body.registeredHash,
+  };
 }

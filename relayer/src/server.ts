@@ -1,6 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
-import { getTransactionLastResult, type Account, type JsonRpcProvider } from 'near-api-js';
+import type { Account, JsonRpcProvider } from 'near-api-js';
 import { DecodeError, decodeSignedDelegate, publicKeyString, verifyDelegateSignature } from './codec';
 import { SenderLimiter, checkPolicy, type RelayPolicy } from './policy';
 
@@ -14,6 +14,14 @@ export interface RelayerDeps {
   logger?: boolean;
   /** Called after every relay attempt (for logs and demos). */
   onRelay?: (event: RelayEvent) => void;
+  /**
+   * USDC contract. When set, the relayer registers a freelancer with USDC
+   * (NEP-145 storage deposit, 0.00125 NEAR, paid by the relayer) right after
+   * their first relayed `create_invoice`, so payouts can reach them.
+   * A browser session key is a function-call key and cannot attach that
+   * deposit itself, so the relayer makes this call directly.
+   */
+  usdcId?: string;
 }
 
 export interface RelayEvent {
@@ -23,6 +31,32 @@ export interface RelayEvent {
   status: number;
   hash?: string;
   error?: string;
+  /** Hash of the relayer's USDC storage_deposit for the sender, when it made one. */
+  registeredHash?: string;
+}
+
+/** Registers `accountId` with the USDC contract unless it already is. Returns the tx hash, or undefined. */
+export async function ensureUsdcRegistration(
+  relayer: Account,
+  provider: JsonRpcProvider,
+  usdcId: string,
+  accountId: string,
+  deposit: bigint,
+): Promise<string | undefined> {
+  const bal = await provider.callFunction({
+    contractId: usdcId,
+    method: 'storage_balance_of',
+    args: { account_id: accountId },
+  });
+  if (bal) return undefined;
+  const res = await relayer.callFunctionRaw({
+    contractId: usdcId,
+    methodName: 'storage_deposit',
+    args: { account_id: accountId, registration_only: true },
+    deposit,
+    gas: 30_000_000_000_000n,
+  });
+  return res.transaction.hash;
 }
 
 type Outcome = { outcome: { status: unknown } };
@@ -38,6 +72,30 @@ export function firstFailure(res: { receipts_outcome?: Outcome[]; status?: unkno
     if (f) return f;
   }
   return fail(res.status);
+}
+
+/**
+ * Return value of the relayed call. In a meta-transaction the transaction's
+ * own status belongs to the Delegate action (empty), so the value is read from
+ * the receipt the contract executed.
+ */
+export function relayedValue(
+  res: { receipts_outcome?: { outcome: { executor_id?: string; status: unknown } }[] },
+  contractId: string,
+): unknown {
+  for (const r of res.receipts_outcome ?? []) {
+    if (r.outcome.executor_id !== contractId) continue;
+    const s = r.outcome.status as { SuccessValue?: string } | undefined;
+    if (s && typeof s.SuccessValue === 'string') {
+      if (s.SuccessValue === '') return null;
+      try {
+        return JSON.parse(Buffer.from(s.SuccessValue, 'base64').toString('utf8'));
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
 }
 
 const json = (v: unknown) => JSON.parse(JSON.stringify(v, (_k, x) => (typeof x === 'bigint' ? x.toString() : x)));
@@ -85,12 +143,19 @@ export async function buildServer(deps: RelayerDeps): Promise<FastifyInstance> {
     try {
       const res = await deps.relayer.relayMetaTransaction(decoded as never);
       const failure = firstFailure(res as never);
-      let value: unknown;
-      if (!failure) {
+      const value = failure ? null : relayedValue(res as never, deps.policy.contractId);
+      let registeredHash: string | undefined;
+      if (!failure && deps.usdcId && policy.methods.includes('create_invoice')) {
         try {
-          value = getTransactionLastResult(res);
-        } catch {
-          value = undefined;
+          registeredHash = await ensureUsdcRegistration(
+            deps.relayer,
+            deps.provider,
+            deps.usdcId,
+            senderId,
+            deps.policy.storageDepositYocto,
+          );
+        } catch (e) {
+          req.log.warn({ err: (e as Error).message, senderId }, 'USDC registration failed');
         }
       }
       const out = {
@@ -101,8 +166,9 @@ export async function buildServer(deps: RelayerDeps): Promise<FastifyInstance> {
         methods: policy.methods,
         value: json(value ?? null),
         error: failure,
+        registeredHash,
       };
-      return send(200, out, { senderId, methods: policy.methods, hash: out.hash });
+      return send(200, out, { senderId, methods: policy.methods, hash: out.hash, registeredHash });
     } catch (e) {
       return send(502, { error: (e as Error).message, code: 'relay_failed' }, { senderId, methods: policy.methods });
     }
