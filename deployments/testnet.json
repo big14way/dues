@@ -1,0 +1,26 @@
+{
+  "network": "testnet",
+  "contract": "dues.testnet",
+  "owner": "dues-owner.testnet",
+  "watcher": "dues-watcher.testnet",
+  "relayer": "dues-relayer.testnet",
+  "usdc": "3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af",
+  "code_sha256": "99c3daaef0f5225a9313047881d6720e7b6a0736bc521b156da9b199a3822e69",
+  "txs": {
+    "deploy": "DwJ6ty7uAQ1yyAE92smDj241gPwG1eo87grsX2rGGh8R",
+    "usdc_register": "6NQ6B3RG9BruRQS5fPmeKG96jqHczwvaqTmCuCjxaXcb"
+  },
+  "recorded_at": "2026-11-06T21:27:32.346Z",
+  "flows": [
+    {
+      "invoice": 1,
+      "title": "Logo refresh (testnet)",
+      "txs": {
+        "session_key": "472VxNGid4fBgaLW8Edkpg2KH2MxGpkksrHQFveK9Vxm",
+        "create_invoice": "AfqzVQELExR3vzwUtNSBNY4nXqwXfDgVa7LnwhA7a4Zx",
+        "usdc_register": "Cm3m6kz3N88dmZWc8sitna2ouX8ySdfcDwj4s7AVzH5x"
+      },
+      "recorded_at": "2026-11-06T21:28:23.386Z"
+    }
+  ]
+}

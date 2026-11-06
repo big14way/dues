@@ -21,7 +21,10 @@
     "dev": "pnpm --filter @dues/app dev",
     "relayer": "pnpm --filter @dues/relayer start",
     "watcher": "pnpm --filter @dues/watcher start",
-    "deploy:testnet": "pnpm build:contract && tsx scripts/deploy-testnet.ts"
+    "deploy:testnet": "pnpm build:contract && tsx scripts/deploy-testnet.ts",
+    "accounts:testnet": "tsx scripts/create-testnet-accounts.ts",
+    "testnet:flow": "tsx scripts/testnet-flow.ts",
+    "lock:testnet": "tsx scripts/lock-testnet.ts"
   },
   "devDependencies": {
     "@types/node": "26.6.6",
