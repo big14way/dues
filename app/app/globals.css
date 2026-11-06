@@ -1,0 +1,143 @@
+@import 'tailwindcss';
+
+/* Dues tokens. Layout system after hosted checkout pages: cool grey canvas, white cards with a soft
+   two-layer shadow, a 36px amount, quiet labels, one money-green action colour. */
+:root {
+  --canvas: #f5f7f9;
+  --surface: #ffffff;
+  --sunken: #f0f3f6;
+  --chip: #e9edf1;
+  --ink: #14171c;
+  --ink-2: #353b45;
+  --muted: #5f6b7a;
+  --faint: #8a94a3;
+  --line: #e4e8ed;
+  --line-strong: #cfd6de;
+  --accent: #0f7b5f;
+  --accent-hover: #0b6a51;
+  --accent-ink: #ffffff;
+  --accent-soft: #e6f3ee;
+  --good: #0f7b5f;
+  --good-bg: #e6f3ee;
+  --warn: #8f5300;
+  --warn-bg: #fbf1df;
+  --bad: #b42318;
+  --bad-bg: #fcecea;
+  --info: #2a55c4;
+  --info-bg: #e9effc;
+  --shadow-card: 0 1px 1px rgba(16, 24, 40, 0.04), 0 12px 32px -16px rgba(16, 24, 40, 0.22);
+  --shadow-pop: 0 2px 4px rgba(16, 24, 40, 0.06), 0 24px 48px -16px rgba(16, 24, 40, 0.28);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --canvas: #0d1013;
+  --surface: #151a1f;
+  --sunken: #1b2127;
+  --chip: #232a31;
+  --ink: #eef1f4;
+  --ink-2: #d2d8df;
+  --muted: #9aa4b1;
+  --faint: #6e7886;
+  --line: #262d35;
+  --line-strong: #38414b;
+  --accent: #2fbf8f;
+  --accent-hover: #3fd09f;
+  --accent-ink: #06140f;
+  --accent-soft: #10291f;
+  --good: #3fd09f;
+  --good-bg: #10291f;
+  --warn: #f0b14d;
+  --warn-bg: #2c2210;
+  --bad: #ff7a6e;
+  --bad-bg: #341614;
+  --info: #8fb0ff;
+  --info-bg: #17213a;
+  --shadow-card: 0 1px 1px rgba(0, 0, 0, 0.3), 0 12px 32px -16px rgba(0, 0, 0, 0.7);
+  --shadow-pop: 0 2px 4px rgba(0, 0, 0, 0.4), 0 24px 48px -16px rgba(0, 0, 0, 0.8);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-chip: var(--chip);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-good-bg: var(--good-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-bad: var(--bad);
+  --color-bad-bg: var(--bad-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+  --font-sans: var(--font-sans-face), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: var(--font-mono-face), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+}
+
+html {
+  background: var(--canvas);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--canvas);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The checkout widget sits inside our payment card: drop its own frame. */
+dues-checkout::part(card) {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+dues-checkout {
+  max-width: none;
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.skeleton {
+  background: var(--chip);
+  border-radius: 6px;
+  animation: pulse-soft 1.4s ease-in-out infinite;
+}
+
+/* Code shows exactly what to type: no ligatures. */
+code,
+pre,
+.font-mono {
+  font-variant-ligatures: none;
+}

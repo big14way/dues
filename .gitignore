@@ -11,3 +11,4 @@ app/public/widget.js
 app/public/dues-config.json
 .dues/
 out/
+*.tsbuildinfo
