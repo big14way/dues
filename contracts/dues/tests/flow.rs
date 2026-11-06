@@ -415,6 +415,89 @@ async fn retainer_fund_pull_withdraw() -> anyhow::Result<()> {
     Ok(())
 }
 
+async fn pay_direct(e: &Env, payer: &Account, id: u64, amount: u128) -> anyhow::Result<ExecutionFinalResult> {
+    Ok(payer
+        .call(e.usdc.id(), "ft_transfer_call")
+        .args_json(json!({ "receiver_id": e.dues.id(), "amount": amount.to_string(), "msg": json!({ "invoice_id": id }).to_string() }))
+        .deposit(NearToken::from_yoctonear(1))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?)
+}
+
+#[tokio::test]
+async fn direct_usdc_payment_on_near() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = e
+        .create(json!({ "title": "Landing page", "amount_usdc": (25 * USDC).to_string(), "due_ts": 0 }))
+        .await?;
+    let (ada0, acme0) = (e.balance(&e.ada).await?, e.balance(&e.acme).await?);
+
+    // Underpaying is returned in full and changes nothing.
+    pay_direct(&e, &e.acme, id, 24 * USDC).await?.into_result()?;
+    assert_eq!(e.balance(&e.acme).await?, acme0);
+    assert_eq!(e.invoice(id).await?["status"], "pending");
+
+    // Overpaying: the freelancer gets exactly the invoice amount, the rest goes back.
+    let res = pay_direct(&e, &e.acme, id, 30 * USDC).await?;
+    assert!(res.is_success(), "{:?}", res.into_result().err());
+    assert_eq!(e.balance(&e.ada).await? - ada0, 25 * USDC);
+    assert_eq!(acme0 - e.balance(&e.acme).await?, 25 * USDC);
+    let inv = e.invoice(id).await?;
+    assert_eq!(inv["status"], "paid");
+    assert_eq!(inv["client"], e.acme.id().as_str());
+    assert_eq!(inv["txs"][0]["kind"], "direct");
+    assert_eq!(inv["txs"][0]["amount_usdc"], (25 * USDC).to_string());
+
+    // A second payment is returned.
+    pay_direct(&e, &e.acme, id, 25 * USDC).await?.into_result()?;
+    assert_eq!(acme0 - e.balance(&e.acme).await?, 25 * USDC);
+
+    // A freelancer who never registered with USDC: the forward fails, the
+    // payer gets everything back and the invoice stays open.
+    let bob = account(&e.worker.root_account()?, "bob").await?;
+    let id2: u64 = bob
+        .call(e.dues.id(), "create_invoice")
+        .args_json(json!({ "title": "Unregistered", "amount_usdc": (5 * USDC).to_string(), "due_ts": 0 }))
+        .transact()
+        .await?
+        .into_result()?
+        .json()?;
+    let before = e.balance(&e.acme).await?;
+    let _ = pay_direct(&e, &e.acme, id2, 5 * USDC).await?;
+    assert_eq!(e.balance(&e.acme).await?, before);
+    let inv2 = e.invoice(id2).await?;
+    assert_eq!(inv2["status"], "pending");
+    assert!(inv2["client"].is_null());
+    assert!(inv2["txs"].as_array().unwrap().is_empty());
+    Ok(())
+}
+
+#[tokio::test]
+async fn owner_can_upgrade_code_and_state_survives() -> anyhow::Result<()> {
+    let e = setup().await?;
+    let id = e
+        .create(json!({ "title": "Keep me", "amount_usdc": USDC.to_string(), "due_ts": 0 }))
+        .await?;
+    let res = e
+        .eve
+        .call(e.dues.id(), "update_contract")
+        .args(wasm("dues"))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?;
+    assert!(failed_with(&res, "only the owner"));
+    e.dues
+        .call("update_contract")
+        .args(wasm("dues"))
+        .gas(near_workspaces::types::Gas::from_tgas(100))
+        .transact()
+        .await?
+        .into_result()?;
+    assert_eq!(e.invoice(id).await?["title"], "Keep me");
+    Ok(())
+}
+
 #[tokio::test]
 async fn storage_deposit_registers_caller_with_usdc() -> anyhow::Result<()> {
     let e = setup().await?;

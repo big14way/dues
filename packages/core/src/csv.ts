@@ -35,7 +35,7 @@ export function invoiceRows(invoices: Invoice[], opts: CsvOptions = {}): CsvRow[
     const client = inv.client ?? '';
     let events = 0;
     for (const tx of inv.txs) {
-      if (tx.kind === 'intent' || tx.kind === 'pull') {
+      if (tx.kind === 'intent' || tx.kind === 'pull' || tx.kind === 'direct') {
         events++;
         rows.push({
           date: day(tx.ts),

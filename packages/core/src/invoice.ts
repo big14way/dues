@@ -2,7 +2,17 @@
 
 export type Recurrence = 'none' | 'monthly';
 export type InvoiceStatus = 'pending' | 'paid' | 'refunded' | 'cancelled';
-export type TxKind = 'intent' | 'refund' | 'fund' | 'pull' | 'withdraw';
+export type TxKind = 'intent' | 'refund' | 'fund' | 'pull' | 'withdraw' | 'direct';
+
+/** How each ledger entry reads to a bookkeeper. */
+export const TX_KIND_LABEL: Record<TxKind, string> = {
+  intent: 'Paid through NEAR Intents',
+  direct: 'Paid with USDC on NEAR',
+  refund: 'Refunded to the payer',
+  fund: 'Retainer funded by the client',
+  pull: 'Retainer month released',
+  withdraw: 'Escrow returned to the client',
+};
 
 export interface LineItem {
   description: string;

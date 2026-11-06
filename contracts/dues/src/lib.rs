@@ -6,7 +6,12 @@
 //!    address; 1Click delivers USDC straight to the freelancer. The contract never
 //!    holds those funds. A watcher account (set by the owner) reports the outcome
 //!    with `mark_paid` or `mark_refunded`, and records the transaction hashes.
-//! 2. **Retainer escrow on NEAR.** A client `ft_transfer_call`s USDC into this
+//! 2. **USDC on NEAR, directly.** A client who already holds USDC on NEAR
+//!    `ft_transfer_call`s it to this contract with msg `{"invoice_id": N}`. For a
+//!    one-off invoice the contract forwards exactly the invoice amount to the
+//!    freelancer in the same transaction and returns any excess; if the forward
+//!    fails the whole payment goes back to the client.
+//! 3. **Retainer escrow on NEAR.** A client `ft_transfer_call`s USDC into this
 //!    contract for a monthly invoice. `pull(id)` releases one month to the
 //!    freelancer once that month is due. Anyone may call `pull`; it can only ever
 //!    pay the freelancer the agreed amount, once per month. A client typically
@@ -86,6 +91,8 @@ pub enum TxKind {
     Pull,
     /// Remaining escrow returned to the client.
     Withdraw,
+    /// Client paid with USDC on NEAR; forwarded to the freelancer.
+    Direct,
 }
 
 #[near(serializers = [borsh, json])]
@@ -224,6 +231,16 @@ impl Dues {
     pub fn set_owner(&mut self, owner_id: AccountId) {
         self.assert_owner();
         self.owner_id = owner_id;
+    }
+
+    /// Owner-only code upgrade, so the contract account can drop its own
+    /// full-access key. The new wasm is the raw call input. State is kept.
+    pub fn update_contract(&mut self) -> Promise {
+        self.assert_owner();
+        let code = env::input().unwrap_or_else(|| env::panic_str("no code"));
+        require!(code.len() > 8 && code[..4] == *b"\0asm", "input is not a wasm module");
+        emit("update_contract", json!({ "size": code.len() }));
+        Promise::new(env::current_account_id()).deploy_contract(code)
     }
 
     // ----------------------------------------------------------- freelancer
@@ -563,8 +580,39 @@ impl Dues {
         false
     }
 
-    /// NEP-141 receiver. USDC sent with msg `{"invoice_id": N}` funds the
-    /// retainer escrow of monthly invoice N. Anything else is returned.
+    /// Settles a direct USDC payment. Returns the amount the USDC contract
+    /// must give back to the payer: the excess on success, everything on failure.
+    #[private]
+    pub fn on_direct_settled(&mut self, id: u64, received: U128, excess: U128, bound_client: bool) -> U128 {
+        let ok = env::promise_result_checked(0, 64).is_ok();
+        let inv = self.invoice_mut(id);
+        if ok {
+            let payer = inv.client.clone();
+            emit(
+                "invoice_paid",
+                json!({ "id": id, "direct": true, "payer": payer, "amount_usdc": inv.amount_usdc }),
+            );
+            return excess;
+        }
+        // Forward failed (freelancer not registered with USDC): undo and refund in full.
+        inv.status = Status::Pending;
+        inv.periods_paid = inv.periods_paid.saturating_sub(1);
+        if let Some(pos) = inv.txs.iter().rposition(|t| t.kind == TxKind::Direct) {
+            inv.txs.remove(pos);
+        }
+        let unbind = if bound_client { inv.client.take() } else { None };
+        if let Some(ids) = unbind.and_then(|c| self.by_client.get_mut(&c)) {
+            if ids.last() == Some(&id) {
+                ids.pop();
+            }
+        }
+        emit("invoice_direct_failed", json!({ "id": id }));
+        received
+    }
+
+    /// NEP-141 receiver. USDC sent with msg `{"invoice_id": N}` pays one-off
+    /// invoice N (forwarded to the freelancer), or funds the retainer escrow of
+    /// monthly invoice N. Anything else is returned.
     pub fn ft_on_transfer(
         &mut self,
         sender_id: AccountId,
@@ -583,9 +631,10 @@ impl Dues {
             env::log_str("unknown invoice; returning tokens");
             return PromiseOrValue::Value(amount);
         };
-        let reject = if inv.recurrence != Recurrence::Monthly {
-            Some("only monthly invoices take retainer funding")
-        } else if inv.status != Status::Pending {
+        if inv.recurrence == Recurrence::None {
+            return self.pay_direct(id, sender_id, amount);
+        }
+        let reject = if inv.status != Status::Pending {
             Some("invoice is not active")
         } else if inv.client.as_ref().is_some_and(|c| c != &sender_id) {
             Some("only the invoice's client can fund it")
@@ -804,6 +853,60 @@ impl Dues {
             period: Some(period),
         });
         (inv.freelancer.clone(), amount, prev_due, period)
+    }
+
+    /// One-off invoice paid with USDC on NEAR. Books it as paid and forwards
+    /// the invoice amount to the freelancer; `on_direct_settled` confirms or undoes it.
+    fn pay_direct(&mut self, id: u64, sender_id: AccountId, amount: U128) -> PromiseOrValue<U128> {
+        let ts = now_ms();
+        let inv = self.invoices.get(&id).unwrap();
+        let reject = if inv.status != Status::Pending {
+            Some("invoice is not pending")
+        } else if inv.client.as_ref().is_some_and(|c| c != &sender_id) {
+            Some("only the invoice's client can pay it")
+        } else if sender_id == inv.freelancer {
+            Some("the freelancer cannot pay their own invoice")
+        } else if inv.deposit_addr.is_some() {
+            Some("this invoice is already being paid through 1Click")
+        } else if amount.0 < inv.amount_usdc.0 {
+            Some("less than the invoice amount")
+        } else if inv.txs.len() >= MAX_TXS {
+            Some("too many transactions on this invoice")
+        } else {
+            None
+        };
+        if let Some(reason) = reject {
+            env::log_str(&format!("{reason}; returning tokens"));
+            return PromiseOrValue::Value(amount);
+        }
+        let bound_client = inv.client.is_none();
+        let inv = self.invoices.get_mut(&id).unwrap();
+        let due = inv.amount_usdc.0;
+        let freelancer = inv.freelancer.clone();
+        inv.client = Some(sender_id.clone());
+        inv.status = Status::Paid;
+        inv.periods_paid += 1;
+        inv.txs.push(TxRecord {
+            kind: TxKind::Direct,
+            hash: None,
+            origin_chain: Some("near".to_string()),
+            origin_tx: None,
+            amount_usdc: U128(due),
+            fee_usdc: U128(0),
+            ts,
+            period: None,
+        });
+        if bound_client {
+            self.index_push(false, &sender_id, id);
+        }
+        self.open_deposits.remove(&id);
+        self.transfer_usdc(freelancer, due, format!("Dues invoice {id}"))
+            .then(
+                Self::ext(env::current_account_id())
+                    .with_static_gas(GAS_CALLBACK)
+                    .on_direct_settled(id, amount, U128(amount.0 - due), bound_client),
+            )
+            .into()
     }
 
     fn transfer_usdc(&self, receiver: AccountId, amount: u128, memo: String) -> Promise {
