@@ -36,6 +36,8 @@ export interface PaidDetail {
   nearTxHashes: string[];
   originTxHashes: { hash: string; explorerUrl: string }[];
   dry: boolean;
+  /** True when the steps were replayed in the page (dry run, no status-url): nothing was paid. */
+  simulated: boolean;
   status: StatusResponse | null;
 }
 
@@ -136,12 +138,13 @@ function q<T extends Element>(root: ParentNode, sel: string): T {
  * Attributes: amount (USD), to (NEAR account), memo, invoice, dry, theme,
  * api-base (1Click base URL), status-url (poll here instead of 1Click),
  * track-url (POST {invoiceId, depositAddress} here before showing the address),
- * chain / token (preselect), refund-to, dry-sequence (success|refunded|failed).
+ * chain / token (preselect), refund-to, dry-sequence (success|refunded|failed),
+ * compact (hide amount and memo when the host page shows them), dry-note (dry-run banner text).
  * Events (bubbling, composed): dues:quote, dues:status, dues:paid, dues:error.
  * Property: onPaid(detail).
  */
 export class DuesCheckout extends HTMLElement {
-  static observedAttributes = ['amount', 'to', 'memo', 'dry'];
+  static observedAttributes = ['amount', 'to', 'memo', 'dry', 'compact', 'dry-note'];
 
   onPaid?: (detail: PaidDetail) => void;
   onQuote?: (detail: QuoteDetail) => void;
@@ -223,8 +226,14 @@ export class DuesCheckout extends HTMLElement {
     const memo = this.getAttribute('memo');
     const memoEl = q(this.shadow, '[data-memo]');
     memoEl.textContent = memo ?? '';
-    memoEl.classList.toggle('hidden', !memo);
-    q(this.shadow, '[data-dry]').classList.toggle('hidden', !this.dry);
+    // compact: the host page already shows amount and memo (an invoice page, for one).
+    const compact = this.hasAttribute('compact');
+    memoEl.classList.toggle('hidden', !memo || compact);
+    q(this.shadow, '.top').classList.toggle('hidden', compact);
+    const dryEl = q(this.shadow, '[data-dry]');
+    dryEl.classList.toggle('hidden', !this.dry);
+    const note = this.getAttribute('dry-note');
+    if (note) dryEl.textContent = note;
   }
 
   private async loadTokenList() {
@@ -493,8 +502,17 @@ export class DuesCheckout extends HTMLElement {
     })();
     const box = q(this.shadow, '[data-paid]');
     const strong = document.createElement('strong');
-    strong.textContent = 'Paid. ';
-    box.replaceChildren(strong, document.createTextNode(`${amount} USDC delivered to ${this.to} on NEAR.`));
+    // A dry run with no status-url replays the steps locally: nothing was paid, so say so.
+    const simulated = this.dry && !this.getAttribute('status-url');
+    strong.textContent = simulated ? 'Dry run finished. ' : 'Paid. ';
+    box.replaceChildren(
+      strong,
+      document.createTextNode(
+        simulated
+          ? `In a live checkout, ${amount} USDC would now be with ${this.to} on NEAR. Nothing was paid.`
+          : `${amount} USDC delivered to ${this.to} on NEAR.`,
+      ),
+    );
     box.classList.remove('hidden');
     const detail: PaidDetail = {
       depositAddress,
@@ -505,6 +523,7 @@ export class DuesCheckout extends HTMLElement {
       nearTxHashes: res?.swapDetails.nearTxHashes ?? [],
       originTxHashes: res?.swapDetails.originChainTxHashes ?? [],
       dry: this.dry,
+      simulated: this.dry && !this.getAttribute('status-url'),
       status: res,
     };
     this.onPaid?.(detail);

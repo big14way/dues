@@ -21,6 +21,10 @@ export interface DuesCheckoutProps {
   token?: string;
   refundTo?: string;
   drySequence?: 'success' | 'refunded' | 'failed';
+  /** Hide amount and memo when the page around the widget already shows them. */
+  compact?: boolean;
+  /** Replaces the dry-run banner text. */
+  dryNote?: string;
   className?: string;
   style?: CSSProperties;
   onQuote?: (d: QuoteDetail) => void;
@@ -66,10 +70,12 @@ export function DuesCheckout(props: DuesCheckoutProps) {
     token: props.token,
     'refund-to': props.refundTo,
     'dry-sequence': props.drySequence,
+    'dry-note': props.dryNote,
     className: props.className,
     style: props.style,
   };
   // React 19 sets known custom-element properties directly; `dry` has a boolean setter.
   if (props.dry) attrs.dry = true;
+  if (props.compact) attrs.compact = '';
   return createElement('dues-checkout', attrs);
 }
