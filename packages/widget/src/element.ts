@@ -135,6 +135,7 @@ function q<T extends Element>(root: ParentNode, sel: string): T {
  *
  * Attributes: amount (USD), to (NEAR account), memo, invoice, dry, theme,
  * api-base (1Click base URL), status-url (poll here instead of 1Click),
+ * track-url (POST {invoiceId, depositAddress} here before showing the address),
  * chain / token (preselect), refund-to, dry-sequence (success|refunded|failed).
  * Events (bubbling, composed): dues:quote, dues:status, dues:paid, dues:error.
  * Property: onPaid(detail).
@@ -164,12 +165,21 @@ export class DuesCheckout extends HTMLElement {
   get amount(): string {
     return this.getAttribute('amount') ?? '0';
   }
+  set amount(v: string) {
+    this.setAttribute('amount', String(v));
+  }
   get to(): string {
     return this.getAttribute('to') ?? '';
+  }
+  set to(v: string) {
+    this.setAttribute('to', v);
   }
   get dry(): boolean {
     const v = this.getAttribute('dry');
     return v !== null && v !== 'false';
+  }
+  set dry(v: boolean) {
+    this.toggleAttribute('dry', Boolean(v));
   }
   private get api(): OneClick {
     return new OneClick({ baseUrl: this.getAttribute('api-base') ?? undefined });
@@ -303,6 +313,7 @@ export class DuesCheckout extends HTMLElement {
       const depositAddress =
         view.depositAddress ??
         `dry-${this.getAttribute('dry-sequence') ?? 'success'}-${Math.random().toString(36).slice(2, 10)}`;
+      await this.track(depositAddress);
       await this.renderQuote(view, token, depositAddress);
       const detail: QuoteDetail = { request, response, view, depositAddress };
       this.onQuote?.(detail);
@@ -313,6 +324,26 @@ export class DuesCheckout extends HTMLElement {
     } finally {
       go.disabled = false;
       go.textContent = 'Get new payment details';
+    }
+  }
+
+  /**
+   * Tells the invoice's watcher which deposit address this payer got, before
+   * the address is shown. If that fails the address is never shown, so nobody
+   * pays into an address the invoice does not know about.
+   */
+  private async track(depositAddress: string) {
+    const url = this.getAttribute('track-url');
+    const invoice = this.getAttribute('invoice');
+    if (!url || !invoice) return;
+    const res = await fetch(new URL(url, typeof location !== 'undefined' ? location.href : undefined), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ invoiceId: Number(invoice), depositAddress }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(`Could not link this payment to the invoice: ${body.error ?? res.status}. Do not pay yet.`);
     }
   }
 

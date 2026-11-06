@@ -11,7 +11,10 @@
   "exports": {
     ".": "./src/index.ts",
     "./register": "./src/register.ts",
-    "./react": "./src/react.ts"
+    "./react": "./src/react.ts",
+    "./quote": "./src/quote.ts",
+    "./tokens": "./src/tokens.ts",
+    "./links": "./src/links.ts"
   },
   "scripts": {
     "build": "node build.mjs",
