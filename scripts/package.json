@@ -1,0 +1,17 @@
+{
+  "name": "@dues/scripts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@dues/core": "workspace:*",
+    "@dues/relayer": "workspace:*",
+    "@dues/watcher": "workspace:*",
+    "@dues/widget": "workspace:*",
+    "near-api-js": "7.4.0",
+    "near-sandbox": "0.3.5"
+  }
+}

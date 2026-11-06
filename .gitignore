@@ -7,3 +7,7 @@ target/
 *.log
 .DS_Store
 neardev/
+app/public/widget.js
+app/public/dues-config.json
+.dues/
+out/
