@@ -21,6 +21,15 @@
         "usdc_register": "Cm3m6kz3N88dmZWc8sitna2ouX8ySdfcDwj4s7AVzH5x"
       },
       "recorded_at": "2026-11-06T21:28:23.386Z"
+    },
+    {
+      "invoice": 1,
+      "title": "Logo refresh (testnet)",
+      "txs": {
+        "pay": "9paQnDbmo9ZFCnAUNuD7Un7x5v1GMLBN3MjnMjvP9RsD",
+        "annotate": "5Ede8W9q6FocxT9Pqyb3G2obh6AeRfCFmWu7cNDGX82F"
+      },
+      "recorded_at": "2026-11-07T08:31:12.652Z"
     }
   ]
 }

@@ -149,6 +149,8 @@ The contract is deployed at **[`dues.testnet`](https://testnet.nearblocks.io/add
 | Freelancer adds the session key (the one transaction they pay for) | [472VxNGi…](https://testnet.nearblocks.io/txns/472VxNGid4fBgaLW8Edkpg2KH2MxGpkksrHQFveK9Vxm) |
 | Invoice #1 created as a meta-transaction; signed by the freelancer's session key, gas paid by `dues-relayer.testnet` | [AfqzVQEL…](https://testnet.nearblocks.io/txns/AfqzVQELExR3vzwUtNSBNY4nXqwXfDgVa7LnwhA7a4Zx) |
 | Relayer registers the freelancer with USDC (0.00125 NEAR, paid by the relayer) | [Cm3m6kz3…](https://testnet.nearblocks.io/txns/Cm3m6kz3N88dmZWc8sitna2ouX8ySdfcDwj4s7AVzH5x) |
+| Client pays invoice #1 with 1.00 testnet USDC on NEAR (`ft_transfer_call`); the contract forwards it to the freelancer in the same transaction and marks the invoice paid | [9paQnDbm…](https://testnet.nearblocks.io/txns/9paQnDbmo9ZFCnAUNuD7Un7x5v1GMLBN3MjnMjvP9RsD) |
+| Watcher reads that transaction, finds the contract's own `invoice_paid` event and records the hash on the invoice | [5Ede8W9q…](https://testnet.nearblocks.io/txns/5Ede8W9q6FocxT9Pqyb3G2obh6AeRfCFmWu7cNDGX82F) |
 
 Reproduce with your own accounts:
 
