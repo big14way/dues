@@ -109,7 +109,9 @@ What it does, in order:
 | `theme` | `light` or `dark` (default follows the system) |
 | `compact` | hide amount and memo when the page already shows them |
 
-Events: `dues:quote`, `dues:status`, `dues:paid`, `dues:error` (bubbling, composed). Bundle: `pnpm build:widget` writes `packages/widget/dist/widget.js` (about 83 KB, no dependencies on the host page).
+Events: `dues:quote`, `dues:status`, `dues:paid`, `dues:error` (bubbling, composed).
+
+**No site? Use a payment link.** [sendues.vercel.app/pay](https://sendues.vercel.app/pay/) turns a NEAR mainnet account and an amount into a hosted checkout, for example [`/pay/?to=godswillidolor.near&amount=2&memo=Order%201042`](https://sendues.vercel.app/pay/?to=godswillidolor.near&amount=2&memo=Order%201042). It checks the account exists on mainnet before it shows a deposit address. Payment links are real money: 1Click runs on mainnet only, so they work while the invoice side of the site runs on testnet. Bundle: `pnpm build:widget` writes `packages/widget/dist/widget.js` (about 83 KB, no dependencies on the host page).
 
 ---
 
