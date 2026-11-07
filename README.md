@@ -13,21 +13,36 @@ Dues is two things:
 
 Why it matters, with sources: [docs/PROBLEM.md](docs/PROBLEM.md).
 
+## What ran where
+
+| What | Where it ran | Proof |
+|---|---|---|
+| Checkout button: USDC on Base in, exactly 2.00 USDC on NEAR out | NEAR mainnet and Base, real money | [Base deposit](https://basescan.org/tx/0x6c503b35fcc772a9bbdf86009c7c01a9bd7b1f8fb29d3c6c3253b402e442a99a), [NEAR delivery](https://nearblocks.io/txns/C7RY5goGbk4ac35kuWRzqGDUtW1tT2pLG4YsXomgzJZp) |
+| Invoice created with no gas for the freelancer, through the live site's relayer | NEAR testnet, [sendues.vercel.app](https://sendues.vercel.app) | [6oxWf5nx…](https://testnet.nearblocks.io/txns/6oxWf5nxSz1jZ9gA4sJ7cKy8yUCWVuhE5c4tSr2Ttd9M) |
+| Invoice paid with USDC on NEAR, forwarded to the freelancer in the same transaction | NEAR testnet | [B5sgJWei…](https://testnet.nearblocks.io/txns/B5sgJWei9YvnaHfxUjwPAsgU91poA8DruZVD5uVAadJt) |
+| Watcher reads the client's transaction and records it on the invoice | NEAR testnet, live site | [BhCzQUPZ…](https://testnet.nearblocks.io/txns/BhCzQUPZUzCZvGN19bgBwHBwJt98LacgD4UY9cVjo7ZN) |
+| Monthly retainer: 3 months prepaid into escrow | NEAR testnet, live site | [8no98haS…](https://testnet.nearblocks.io/txns/8no98haSL5hryHCYDFfZucp2ijPnPXvKxBDoNNd748S7) |
+| Retainer month 1 released by the live site's daily job | NEAR testnet, due Nov 8 00:00 UTC | [invoice #3](https://sendues.vercel.app/i/?id=3) shows it once it runs |
+| Invoice paid from another chain: 1Click quote, deposit, the watcher reads the 1Click status, then `mark_paid` | local sandbox, with a live 1Click quote and a recorded status replay; the watcher's checks also run against the real mainnet status above | `pnpm demo:dry`, `watcher/test` |
+| Refund of a 1Click payment that cannot complete | local sandbox, recorded status | `pnpm demo:dry` |
+
+Not done: a Dues contract on mainnet. Deploying it needs about 3 NEAR of contract storage; the invoice-from-another-chain path would then run unchanged against real 1Click payments.
+
 ---
 
-## Quickstart: everything on your machine, no keys, no accounts (about 2 minutes)
+## Quickstart: everything on your machine, no keys, no accounts
 
-Needs Node 22+, pnpm 10, Rust with `wasm32-unknown-unknown`, and `cargo-near` (`cargo install --locked cargo-near`).
+Needs Node 22+ and pnpm 10. Rust and `cargo-near` are optional: without them the contract comes from [contracts/prebuilt](contracts/prebuilt), byte for byte the code deployed on `dues.testnet`.
 
 ```bash
 pnpm install
 pnpm demo:dry
 ```
 
-This builds the contract, starts a local NEAR sandbox, deploys Dues and a mock USDC, starts the relayer and the watcher, and runs the whole product. Expected ending:
+This builds the contract (or takes the prebuilt one), starts a local NEAR sandbox, deploys Dues and a mock USDC, starts the relayer and the watcher, and runs the whole product. The first run downloads the sandbox node and takes about 4 minutes; later runs take under a minute. Expected ending:
 
 ```
-8/8 scenes behaved as expected (20 s)
+8/8 scenes behaved as expected (21 s)
   ok   gasless onboarding      freelancer adds one session key, then pays no gas
   ok   1Click payment          live dry quote from 1Click, recorded status replay, USDC delivered
   ok   refund                  a 1Click payment that cannot complete is marked refunded
@@ -57,7 +72,7 @@ Sign in with the sandbox accounts `ada.sandbox` (freelancer) or `acme.sandbox` (
 ### Checks
 
 ```bash
-pnpm check     # contract build, 17 Rust tests (10 unit, 7 on a sandbox), typecheck of 7 packages, 29 TypeScript tests
+pnpm check     # contract build, 17 Rust tests (10 unit, 7 on a sandbox), typecheck of 7 packages, 37 TypeScript tests
 ```
 
 ---
@@ -242,6 +257,8 @@ After a sender's first relayed `create_invoice`, the relayer also registers them
 | **Contract account** (`dues.testnet`) | the deployer key, until `pnpm lock:testnet` deletes it | deploy code | after locking: nothing; code upgrades then go only through the owner's `update_contract` |
 | **Owner** (`dues-owner.testnet`) | the author | rotate the watcher, transfer ownership, upgrade the code | touch invoices, escrow or payments |
 
+**What you trust the watcher for.** The contract cannot see other chains, so for a payment made through 1Click it relies on the watcher to say the swap succeeded, paid this freelancer, in USDC on NEAR, in full. A dishonest or compromised watcher could mark an unpaid invoice paid; it could never move money, because 1Click pays the freelancer directly and escrow only moves through `pull` and `withdraw_remaining`. Payments made in USDC on NEAR and retainer funding need no trust: the contract books them itself, and the watcher only adds the transaction hash after finding the contract's own event in it. The owner can replace the watcher.
+
 The freelancer's wallet signs exactly one transaction ever: adding the session key. Meteor and Intear (the wallets used here, through NEAR Wallet Selector) cannot sign delegate actions, so the session key does that, and a function-call key cannot attach deposits, which is why USDC registration is done by the relayer directly.
 
 ## NEAR's role, concretely
@@ -260,7 +277,7 @@ The freelancer's wallet signs exactly one transaction ever: adding the session k
 | `pnpm sandbox` + `pnpm dev` | local chain, API and app to click through |
 | `pnpm api` | the API on :3031 for a real network (reads `.env`) |
 | `pnpm relayer`, `pnpm watcher` | each service on its own |
-| `pnpm accounts:testnet`, `pnpm deploy:testnet`, `pnpm testnet:flow` | testnet accounts, deployment, one paid invoice |
+| `pnpm accounts:testnet`, `pnpm deploy:testnet`, `pnpm testnet:flow` | testnet accounts, deployment, one paid invoice (`API_BASE=https://<host>/api` to go through a deployed relayer and watcher; `RETAINER_MONTHS=3 DUE_AT=<ISO time>` for a prepaid retainer) |
 | `CONFIRM_LOCK=yes pnpm lock:testnet` | deletes the contract account's own full-access key (checks `update_contract` is deployed first) |
 | `pnpm deploy:web` | static app plus one serverless function for `/api` on Vercel; Vercel Cron calls `/api/cron/pull` daily |
 
@@ -271,6 +288,7 @@ Configuration: [.env.example](.env.example). Without relayer or watcher keys the
 ```
 contracts/dues        Rust contract (near-sdk 5.30): invoices, ledger, direct pay, retainer escrow; sandbox tests in tests/flow.rs
 contracts/mock-usdc   6-decimal NEP-141 for the sandbox
+contracts/prebuilt    both contracts as wasm, so the demo runs without Rust; dues.wasm matches the code on dues.testnet
 packages/core         shared types, money, 1Click client, status mapping, CSV, NEAR helpers (relay, meta-tx signing)
 packages/widget       <dues-checkout> web component and React wrapper
 relayer               meta-transaction relayer and its policy
