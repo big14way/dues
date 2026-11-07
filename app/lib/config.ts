@@ -33,7 +33,8 @@ export const DEFAULT_CONFIG: DuesConfig = {
   rpcUrl:
     process.env.NEXT_PUBLIC_RPC_URL ??
     (network === 'mainnet' ? 'https://free.rpc.fastnear.com' : 'https://test.rpc.fastnear.com'),
-  contract: process.env.NEXT_PUBLIC_DUES_CONTRACT ?? (network === 'mainnet' ? 'dues.near' : 'dues.testnet'),
+  // dues.testnet is the recorded deployment. There is no mainnet one: set NEXT_PUBLIC_DUES_CONTRACT there.
+  contract: process.env.NEXT_PUBLIC_DUES_CONTRACT ?? (network === 'mainnet' ? '' : 'dues.testnet'),
   usdc: network === 'mainnet' ? USDC_NEAR_MAINNET : USDC_NEAR_TESTNET,
   apiBase: process.env.NEXT_PUBLIC_API_BASE ?? '/api',
   checkout: {

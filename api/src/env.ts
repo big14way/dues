@@ -9,10 +9,16 @@ function list(v: string | undefined): string[] {
     .filter(Boolean);
 }
 
+/** A deployment is missing configuration: answer 503, not a crash. */
+export class ConfigError extends Error {
+  override name = 'ConfigError';
+}
+
 export function optionsFromEnv(env: NodeJS.ProcessEnv = process.env): ApiOptions {
   const network = (env.NEAR_NETWORK ?? 'testnet') as NetworkId;
-  const contractId = env.DUES_CONTRACT;
-  if (!contractId) throw new Error('DUES_CONTRACT is not set');
+  // Testnet falls back to the recorded deployment (deployments/testnet.json); there is no mainnet one.
+  const contractId = env.DUES_CONTRACT || (network === 'testnet' ? 'dues.testnet' : undefined);
+  if (!contractId) throw new ConfigError(`DUES_CONTRACT is not set (required on ${network})`);
   const relayerKeys = list(env.RELAYER_PRIVATE_KEYS);
   return {
     network,
