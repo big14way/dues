@@ -276,6 +276,8 @@ The relayer submits NEP-366 meta-transactions and pays their gas. It refuses, be
 
 After a sender's first relayed `create_invoice`, the relayer also registers them with USDC (`storage_deposit` on the USDC contract, 0.00125 NEAR), so payouts can reach them. It skips accounts already registered. It uses three full-access keys on its own account, rotated by `MultiKeySigner`, so parallel requests never share a nonce. `GET /api/relayer/policy` returns the live policy.
 
+Check it yourself against the deployed relayer: `pnpm relayer:check` signs four forbidden requests with a full-access testnet key (move USDC, mark an invoice paid, attach 1 NEAR, a tampered signature) and confirms each is refused and the relayer's balance does not move. Its output on Nov 7: 5/5 as expected.
+
 ## What each key can and cannot do
 
 | Key | Held by | Can | Cannot |

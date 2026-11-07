@@ -24,6 +24,7 @@
     "deploy:testnet": "pnpm build:contract && tsx scripts/deploy-testnet.ts",
     "accounts:testnet": "tsx scripts/create-testnet-accounts.ts",
     "testnet:flow": "tsx scripts/testnet-flow.ts",
+    "relayer:check": "tsx scripts/relayer-check.ts",
     "lock:testnet": "tsx scripts/lock-testnet.ts",
     "api": "pnpm --filter @dues/api start",
     "deploy:web": "bash scripts/deploy-web.sh",
