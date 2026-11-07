@@ -1,4 +1,4 @@
-import { nearTxUrl, originTxUrl, type SwapDetails } from '@dues/core';
+import { deliveryTxOf, nearTxUrl, originTxUrl, type SwapDetails } from '@dues/core';
 import { isEvm } from './quote';
 
 const EVM_CHAIN_IDS: Record<string, number> = {
@@ -87,20 +87,16 @@ export interface Receipt {
   returned?: ReceiptLink & { amount: string };
 }
 
-/** NEAR transaction hashes are base58 of 32 bytes: 43 or 44 characters. */
-const NEAR_HASH = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
-
 /**
- * Links for a settled 1Click payment. 1Click lists the NEAR delivery and any
- * change sent back to the payer together under destinationChainTxHashes, so
- * the NEAR one is told apart by its hash format.
+ * Links for a settled 1Click payment: the deposit, the NEAR delivery (see
+ * deliveryTxOf) and any change sent back to the payer on the origin chain.
  */
 export function receiptOf(d: SwapDetails, payChain: string): Receipt {
   const r: Receipt = {};
   const o = d.originChainTxHashes?.[0];
   if (o?.hash) r.origin = { hash: o.hash, url: o.explorerUrl || originTxUrl(payChain, o.hash) };
   const dest = d.destinationChainTxHashes ?? [];
-  const near = dest.find((t) => NEAR_HASH.test(t.hash))?.hash ?? d.nearTxHashes?.at(-1);
+  const near = deliveryTxOf(d);
   if (near) r.delivery = { hash: near, url: nearTxUrl('mainnet', near) };
   const amount = d.refundedAmountFormatted;
   if (amount && Number(amount) > 0) {

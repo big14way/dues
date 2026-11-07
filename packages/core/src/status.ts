@@ -1,4 +1,4 @@
-import type { OneClickStatus, StatusResponse } from './oneclick';
+import type { OneClickStatus, StatusResponse, SwapDetails } from './oneclick';
 import { usdToUnits } from './money';
 import { USDC_NEAR_ASSET_ID } from './constants';
 import type { Invoice } from './invoice';
@@ -69,10 +69,23 @@ export function verifyAgainstInvoice(
   return { ok: true };
 }
 
+/** NEAR transaction hashes are base58 of 32 bytes: 43 or 44 characters. */
+const NEAR_HASH = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/;
+
+/**
+ * The NEAR transaction that delivered USDC to the recipient. 1Click lists it in
+ * destinationChainTxHashes, next to any change sent back on the origin chain, while
+ * nearTxHashes also holds later Intents steps (on the first mainnet payment its last
+ * entry was the change going back to Base, not the delivery).
+ */
+export function deliveryTxOf(d: Pick<SwapDetails, 'destinationChainTxHashes' | 'nearTxHashes'>): string | undefined {
+  return d.destinationChainTxHashes?.find((t) => NEAR_HASH.test(t.hash))?.hash ?? d.nearTxHashes?.at(-1);
+}
+
 /** Pulls hashes, amount and fee out of a SUCCESS status for `mark_paid`. */
 export function settlementFrom(s: StatusResponse, originChain?: string): Settlement {
   const d = s.swapDetails;
-  const intentTx = d.nearTxHashes.at(-1) ?? d.destinationChainTxHashes.at(-1)?.hash ?? d.intentHashes.at(-1) ?? 'unknown';
+  const intentTx = deliveryTxOf(d) ?? d.intentHashes.at(-1) ?? 'unknown';
   const amountOut = d.amountOut ?? s.quoteResponse.quote.amountOut;
   const inUsd = d.amountInUsd ?? s.quoteResponse.quote.amountInUsd;
   const outUsd = d.amountOutUsd ?? s.quoteResponse.quote.amountOutUsd;

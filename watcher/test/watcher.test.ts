@@ -5,6 +5,7 @@ import type { Account } from 'near-api-js';
 import { FixtureSource, Watcher, checkClientTx, dryDepositAddress, type StatusSource } from '../src';
 import sequences from '../../fixtures/1click/status-sequences.json';
 import quote from '../../fixtures/1click/quote-dry.json';
+import paidMainnet from '../../fixtures/1click/status-success-mainnet.json';
 
 function invoice(over: Partial<Invoice> = {}): Invoice {
   return {
@@ -145,5 +146,45 @@ describe('client transaction check', () => {
     expect(checkClientTx(txOf('acme.near', 'other.near', [ev('invoice_paid', { id: 1, direct: true })]), paid, ids).ok).toBe(false);
     const spoof = `EVENT_JSON:${JSON.stringify({ standard: 'nep141', event: 'invoice_paid', data: [{ id: 1, direct: true }] })}`;
     expect(checkClientTx(txOf('acme.near', 'usdc.near', [spoof]), paid, ids).ok).toBe(false);
+  });
+});
+
+describe('the recorded $2 mainnet payment', () => {
+  // fixtures/1click/status-success-mainnet.json: 2.1 USDC sent on Base, 2.00 USDC delivered to
+  // godswillidolor.near, 0.092516 USDC change returned to Base afterwards.
+  const real = paidMainnet as unknown as StatusResponse;
+  const live = (s: StatusResponse): StatusSource => ({ kind: 'live', status: async () => s });
+  const onMainnet = (over: Partial<Invoice> = {}) =>
+    invoice({ freelancer: 'godswillidolor.near', amount_usdc: '2000000', deposit_addr: real.quoteResponse.quote.depositAddress!, ...over });
+
+  it('marks a 2.00 USDC invoice paid, linking the delivery on NEAR, not the later change refund', async () => {
+    const inv = onMainnet();
+    const { dues, watcher, calls } = fakes([inv]);
+    await new Watcher({ dues, watcher, source: live(real) }).tick();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({
+      method: 'mark_paid',
+      args: {
+        id: 1,
+        intent_tx: 'C7RY5goGbk4ac35kuWRzqGDUtW1tT2pLG4YsXomgzJZp',
+        origin_chain: 'base',
+        origin_tx: '0x6c503b35fcc772a9bbdf86009c7c01a9bd7b1f8fb29d3c6c3253b402e442a99a',
+        amount_usdc: '2000000',
+      },
+    });
+    const fee = BigInt(calls[0]!.args.fee_usdc as string);
+    expect(fee > 0n && fee < 10_000n).toBe(true); // under one cent
+  });
+
+  it('refuses the same payment for a larger invoice or another freelancer', async () => {
+    for (const [over, reason] of [
+      [{ amount_usdc: '3000000' }, 'delivered 2000000, invoice is 3000000'],
+      [{ freelancer: 'ada.near' }, 'pays godswillidolor.near, not ada.near'],
+    ] as const) {
+      const { dues, watcher, calls } = fakes([onMainnet(over)]);
+      const events = await new Watcher({ dues, watcher, source: live(real) }).tick();
+      expect(calls).toHaveLength(0);
+      expect(events.find((e) => e.type === 'flagged')).toMatchObject({ reason });
+    }
   });
 });
