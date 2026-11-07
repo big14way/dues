@@ -2,6 +2,8 @@
 
 **One checkout button. Any wallet, any chain. Settles in USDC on NEAR.**
 
+**Live on NEAR testnet:** [getdues-mu.vercel.app](https://getdues-mu.vercel.app). A paid invoice: [invoice #1](https://getdues-mu.vercel.app/i/?id=1). Its freelancer's books: [dashboard](https://getdues-mu.vercel.app/dashboard/?account=dues-freelancer.testnet).
+
 Dues is two things:
 
 1. **`<dues-checkout>`**, a checkout button any website can embed with one script tag. The buyer pays with whatever they hold (USDC on Base, SOL, ETH, USDT on Tron: 200+ tokens on 30+ chains) through [NEAR Intents 1Click](https://docs.near-intents.org). The seller receives exactly the amount asked for, in USDC on NEAR.
