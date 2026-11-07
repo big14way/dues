@@ -10,6 +10,7 @@ import { Button, cx } from './ui';
 
 const NAV = [
   { href: '/#embed', label: 'Checkout button' },
+  { href: '/pay/', label: 'Payment link' },
   { href: '/new/', label: 'New invoice' },
   { href: '/dashboard/', label: 'Invoices' },
 ];

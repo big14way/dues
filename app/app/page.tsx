@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { DuesCheckout } from '@dues/widget/react';
 import { Header } from '@/components/header';
@@ -15,7 +16,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 export default function Home() {
   const { cfg } = useDues();
   const theme = usePageTheme();
-  const [origin, setOrigin] = useState('https://getdues.vercel.app');
+  const [origin, setOrigin] = useState('https://sendues.vercel.app');
   useEffect(() => setOrigin(window.location.origin), []);
   const demoTo = cfg.devAccounts?.find((a) => a.role === 'freelancer')?.id ?? (cfg.network === 'mainnet' ? 'you.near' : 'dues-freelancer.testnet');
   return (
@@ -72,7 +73,10 @@ export default function Home() {
               </Card>
             </div>
             <p className="mt-3 text-center text-[12px] text-muted">
-              Live prices from NEAR Intents 1Click. Dry run: no deposit address is issued, nothing can be paid.
+              Live prices from NEAR Intents 1Click. Dry run: no deposit address is issued, nothing can be paid.{' '}
+              <Link href="/pay/" className="font-medium text-accent hover:underline">
+                Make a real payment link
+              </Link>
             </p>
           </div>
         </section>
