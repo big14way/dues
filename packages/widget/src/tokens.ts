@@ -9,7 +9,7 @@ export const FALLBACK_TOKENS = fallback as OneClickToken[];
 
 function readCache(): OneClickToken[] | undefined {
   try {
-    const raw = globalThis.localStorage?.getItem(CACHE_KEY);
+    const raw = (typeof window === 'undefined' ? undefined : globalThis.localStorage)?.getItem(CACHE_KEY);
     if (!raw) return undefined;
     const { at, tokens } = JSON.parse(raw) as { at: number; tokens: OneClickToken[] };
     return Date.now() - at < CACHE_MS && Array.isArray(tokens) ? tokens : undefined;
@@ -20,7 +20,7 @@ function readCache(): OneClickToken[] | undefined {
 
 function writeCache(tokens: OneClickToken[]) {
   try {
-    globalThis.localStorage?.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), tokens }));
+    (typeof window === 'undefined' ? undefined : globalThis.localStorage)?.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), tokens }));
   } catch {
     /* storage unavailable: fine */
   }
