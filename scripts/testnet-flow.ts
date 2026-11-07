@@ -5,6 +5,8 @@
 //   4. the client pays with testnet USDC on NEAR (ft_transfer_call), forwarded to the freelancer
 //   5. the watcher verifies the client's transaction and records its hash on the invoice
 // Results are appended to deployments/testnet.json. INVOICE_ID=N pays an existing invoice instead.
+// RETAINER_MONTHS=N makes it a monthly retainer the client prepays N months of (DUE_AT=<ISO time>
+// for the first month); the deployment's daily /api/cron/pull then releases each month when due.
 // API_BASE=https://<host>/api uses a deployed relayer and watcher instead of local ones, so the
 // hosted deployment is what pays the gas and records the payment.
 // The client needs testnet USDC: https://faucet.circle.com (NEAR testnet) to dues-client.testnet.
@@ -23,6 +25,9 @@ import { account, defaults, provider, readDeployment, relayerAccount, writeDeplo
 const p = provider();
 const cfg = defaults;
 const AMOUNT = process.env.AMOUNT_USDC || '1';
+const MONTHS = Number(process.env.RETAINER_MONTHS || 0);
+const DUE_AT = process.env.DUE_AT ? Date.parse(process.env.DUE_AT) : Date.now() + 7 * 86_400_000;
+if (Number.isNaN(DUE_AT) || DUE_AT <= Date.now()) throw new Error('DUE_AT must be a future ISO time');
 const view = new DuesView(cfg.contract, p);
 const link = (h?: string) => (h ? nearTxUrl('testnet', h)! : '(none)');
 const record: Record<string, string> = {};
@@ -90,8 +95,9 @@ try {
     const signed = await signForRelay(session, cfg.contract, 'create_invoice', {
       title: process.env.INVOICE_TITLE || 'Logo refresh (testnet)',
       amount_usdc: parseUsdc(AMOUNT),
-      due_ts: Date.now() + 7 * 86_400_000,
+      due_ts: DUE_AT,
       client: cfg.client,
+      ...(MONTHS > 0 ? { recurrence: 'monthly' } : {}),
       items: [{ description: 'Logo redraw, two rounds', amount_usdc: parseUsdc(AMOUNT) }],
     });
     const r = await relay(relayerUrl, signed);
@@ -110,11 +116,17 @@ try {
 
   const inv = (await view.invoice(id)) as Invoice;
   info(`invoice #${id}: ${inv.title}, ${formatUsdc(inv.amount_usdc)} USDC, status ${inv.status}`);
-  if (inv.status === 'pending') {
-    step(`4. ${cfg.client} pays with testnet USDC on NEAR`);
+  const retainer = inv.recurrence === 'monthly';
+  const due = retainer ? BigInt(inv.amount_usdc) * BigInt(Math.max(1, MONTHS)) : BigInt(inv.amount_usdc);
+  if (inv.status === 'pending' && !(retainer && BigInt(inv.escrow_usdc) > 0n)) {
+    step(
+      retainer
+        ? `4. ${cfg.client} prepays ${formatUsdc(due)} USDC (${Math.max(1, MONTHS)} months) into escrow`
+        : `4. ${cfg.client} pays with testnet USDC on NEAR`,
+    );
     const bal = BigInt(String(await p.callFunction({ contractId: cfg.usdc, method: 'ft_balance_of', args: { account_id: cfg.client } })));
-    if (bal < BigInt(inv.amount_usdc)) {
-      fail(`${cfg.client} holds ${formatUsdc(bal)} testnet USDC, needs ${formatUsdc(inv.amount_usdc)}`);
+    if (bal < due) {
+      fail(`${cfg.client} holds ${formatUsdc(bal)} testnet USDC, needs ${formatUsdc(due)}`);
       info(`get testnet USDC at https://faucet.circle.com (network: NEAR testnet, address: ${cfg.client}),`);
       info(`then run: INVOICE_ID=${id} pnpm testnet:flow`);
       process.exitCode = 2;
@@ -124,13 +136,16 @@ try {
         account(cfg.client, p),
         cfg.usdc,
         'ft_transfer_call',
-        { receiver_id: cfg.contract, amount: inv.amount_usdc, msg: JSON.stringify({ invoice_id: id }) },
+        { receiver_id: cfg.contract, amount: due.toString(), msg: JSON.stringify({ invoice_id: id }) },
         { deposit: 1n, gasTera: 100 },
       );
       record.pay = pay.hash;
       tx('client ft_transfer_call', pay.hash);
       const after = BigInt(String(await p.callFunction({ contractId: cfg.usdc, method: 'ft_balance_of', args: { account_id: inv.freelancer } })));
-      ok(`freelancer received ${formatUsdc(after - before)} USDC`);
+      if (retainer) {
+        const held = (await view.invoice(id)) as Invoice;
+        ok(`escrow holds ${formatUsdc(held.escrow_usdc)} USDC; month 1 is released on ${new Date(held.due_ts).toISOString()}`);
+      } else ok(`freelancer received ${formatUsdc(after - before)} USDC`);
       step('5. watcher checks the transaction and records it');
       const res = await fetch(`${watcherUrl}/annotate`, {
         method: 'POST',
