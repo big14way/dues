@@ -13,9 +13,11 @@
   },
   "dependencies": {
     "@dues/core": "workspace:*",
+    "@dues/mcp": "workspace:*",
     "@dues/relayer": "workspace:*",
     "@dues/watcher": "workspace:*",
-    "near-api-js": "7.4.0",
-    "fastify": "5.12.8"
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "fastify": "5.12.8",
+    "near-api-js": "7.4.0"
   }
 }

@@ -1,0 +1,21 @@
+{
+  "name": "@dues/mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/server.ts"
+  },
+  "scripts": {
+    "start": "tsx src/stdio.ts",
+    "typecheck": "tsc -p .",
+    "smoke": "tsx scripts/smoke.ts"
+  },
+  "dependencies": {
+    "@dues/core": "workspace:*",
+    "@dues/widget": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "near-api-js": "7.4.0",
+    "zod": "4.6.7"
+  }
+}

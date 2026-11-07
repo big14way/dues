@@ -27,7 +27,9 @@
     "lock:testnet": "tsx scripts/lock-testnet.ts",
     "api": "pnpm --filter @dues/api start",
     "deploy:web": "bash scripts/deploy-web.sh",
-    "build:app": "pnpm build:widget && pnpm --filter @dues/app build"
+    "build:app": "pnpm build:widget && pnpm --filter @dues/app build",
+    "mcp": "pnpm --filter @dues/mcp --silent start",
+    "mcp:smoke": "pnpm --filter @dues/mcp smoke"
   },
   "devDependencies": {
     "@types/node": "26.6.6",

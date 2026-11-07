@@ -3,5 +3,6 @@ packages:
   - relayer
   - watcher
   - api
+  - mcp
   - app
   - scripts

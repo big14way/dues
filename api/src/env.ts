@@ -38,5 +38,6 @@ export function optionsFromEnv(env: NodeJS.ProcessEnv = process.env): ApiOptions
       return { accountId: s.slice(0, i), key: s.slice(i + 1) };
     }),
     corsOrigin: env.API_CORS_ORIGIN ?? true,
+    siteUrl: env.SITE_URL || undefined,
   };
 }

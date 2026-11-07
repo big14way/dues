@@ -1,5 +1,6 @@
 // One HTTP surface for the app: the relayer under /api/relayer, the watcher under /api/watcher,
-// the retainer scheduler under /api/cron/pull. Used by `pnpm api`, `pnpm sandbox` and the
+// the retainer scheduler under /api/cron/pull, and a read-only MCP server for AI agents under
+// /api/mcp (streamable HTTP, stateless). Used by `pnpm api`, `pnpm sandbox` and the
 // Vercel function. A part without keys answers 503, so the site still works read-only.
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { FastifyInstance } from 'fastify';
@@ -9,6 +10,8 @@ import { buildServer, defaultPolicy } from '@dues/relayer';
 import { OneClick } from '@dues/core';
 import { LiveSource, Watcher, buildWatcherServer, pullDueRetainers, type StatusSource, type WatcherEvent, type PullEvent } from '@dues/watcher';
 import type { Account } from 'near-api-js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { createDuesMcp } from '@dues/mcp';
 
 export interface ApiOptions {
   network: NetworkId;
@@ -26,6 +29,8 @@ export interface ApiOptions {
   /** Pull-only keys clients granted: account -> key. */
   pullKeys?: { accountId: string; key: string }[];
   corsOrigin?: string | boolean;
+  /** Public site, for links in MCP answers. Defaults to https://<request host>. */
+  siteUrl?: string;
   /** Sandbox only: extra routes such as moving the chain clock. */
   dev?: { advanceDays(days: number): Promise<void> };
   onEvent?: (e: WatcherEvent | PullEvent) => void;
@@ -79,6 +84,32 @@ export async function createApi(opts: ApiOptions): Promise<Api> {
   const pull = async (): Promise<PullEvent[]> =>
     watcher ? pullDueRetainers({ dues, watcher, pullers, onEvent: opts.onEvent }) : [];
 
+  // Read-only MCP: no agent keys on the server, so only the read tools are offered.
+  const serveMcp = async (req: IncomingMessage, res: ServerResponse) => {
+    const host = req.headers['x-forwarded-host'] ?? req.headers.host;
+    const siteUrl = opts.siteUrl ?? (host ? `https://${String(host).split(',')[0]}` : 'https://sendues.vercel.app');
+    const server = createDuesMcp({ network: opts.network, contractId: opts.contractId, rpcUrl: opts.rpcUrl, siteUrl });
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+    res.on('close', () => {
+      void transport.close();
+      void server.close();
+    });
+    res.setHeader('access-control-allow-origin', '*');
+    res.setHeader('access-control-expose-headers', 'mcp-session-id, mcp-protocol-version');
+    let body: unknown;
+    if (req.method === 'POST') {
+      const chunks: Buffer[] = [];
+      for await (const c of req) chunks.push(c as Buffer);
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString('utf8') || 'null');
+      } catch {
+        return send(res, 400, { jsonrpc: '2.0', error: { code: -32700, message: 'Parse error' }, id: null }, corsOrigin);
+      }
+    }
+    await server.connect(transport);
+    await transport.handleRequest(req, res, body);
+  };
+
   const forward = (app: FastifyInstance | undefined, name: string, req: IncomingMessage, res: ServerResponse, rest: string) => {
     if (!app) return send(res, 503, { error: `${name} is not configured on this deployment` }, corsOrigin);
     req.url = rest || '/';
@@ -97,12 +128,19 @@ export async function createApi(opts: ApiOptions): Promise<Api> {
     const tail = (prefix: string) => `${path.slice(prefix.length) || '/'}${u.search}`;
     if (req.method === 'OPTIONS' && !path.startsWith('/api/relayer') && !path.startsWith('/api/watcher')) {
       res.setHeader('access-control-allow-origin', '*');
-      res.setHeader('access-control-allow-headers', 'content-type, authorization');
+      res.setHeader('access-control-allow-headers', 'content-type, authorization, mcp-session-id, mcp-protocol-version, last-event-id');
+      res.setHeader('access-control-allow-methods', 'GET, POST, DELETE, OPTIONS');
       res.statusCode = 204;
       return res.end();
     }
     if (path.startsWith('/api/relayer')) return forward(relayerApp, 'the relayer', req, res, tail('/api/relayer'));
     if (path.startsWith('/api/watcher')) return forward(watcherApp, 'the watcher', req, res, tail('/api/watcher'));
+    if (path === '/api/mcp') {
+      void serveMcp(req, res).catch((e: Error) => {
+        if (!res.headersSent) send(res, 500, { jsonrpc: '2.0', error: { code: -32603, message: e.message }, id: null }, corsOrigin);
+      });
+      return;
+    }
     if (path === '/api/health') {
       return send(
         res,
