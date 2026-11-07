@@ -50,6 +50,23 @@
         "annotate": "uc2Xec42qxG8ypJBF6QQEnKqTJASsvTTMKFzLegN9mP"
       },
       "recorded_at": "2026-11-07T09:40:17.053Z"
+    },
+    {
+      "invoice": 6,
+      "title": "Logo revision, December",
+      "txs": {
+        "create_invoice": "2Z75QBg4dvjcCKdnPwjQADVy1BUtwgkApBdd1vQJtuy9"
+      },
+      "recorded_at": "2026-11-07T20:43:00.000Z"
+    },
+    {
+      "invoice": 7,
+      "title": "Brand refresh, November",
+      "txs": {
+        "create_invoice": "5kEkYa3ik72MBysVkwEMpWtfdgW3LVBNH34coPLPihPz",
+        "pay": "3QL1WMN5WfACHXEdS3oVY7JEAc8V2VHjujWSC3qEm6Mx"
+      },
+      "recorded_at": "2026-11-07T21:13:43.700Z"
     }
   ]
 }
