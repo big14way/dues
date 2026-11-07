@@ -7,6 +7,8 @@ Dues is two things:
 1. **`<dues-checkout>`**, a checkout button any website can embed with one script tag. The buyer pays with whatever they hold (USDC on Base, SOL, ETH, USDT on Tron: 200+ tokens on 30+ chains) through [NEAR Intents 1Click](https://docs.near-intents.org). The seller receives exactly the amount asked for, in USDC on NEAR.
 2. **Invoices and monthly retainers for freelancers**, built on that button. A freelancer creates an invoice without paying gas, sends a link, and gets paid from any chain. Each invoice shows paid, pending or refunded with every transaction linked, and exports to a CSV an accountant can read.
 
+**A real payment, not a mock:** on Nov 7, 2026 a buyer paid a $2 checkout with USDC on Base, and exactly 2.00 USDC arrived on NEAR 28 seconds after the Base transaction: [Base deposit](https://basescan.org/tx/0x6c503b35fcc772a9bbdf86009c7c01a9bd7b1f8fb29d3c6c3253b402e442a99a), [NEAR delivery](https://nearblocks.io/txns/C7RY5goGbk4ac35kuWRzqGDUtW1tT2pLG4YsXomgzJZp). Details under [Mainnet](#mainnet-a-real-2-payment).
+
 Why it matters, with sources: [docs/PROBLEM.md](docs/PROBLEM.md).
 
 ---
@@ -76,7 +78,7 @@ What it does, in order:
 1. Loads the 1Click token list (`GET /v0/tokens`, cached 10 minutes, with a bundled copy as fallback) and lets the buyer pick a chain and token. Stablecoins are listed first.
 2. Asks for an `EXACT_OUTPUT` quote (`POST /v0/quote`): the recipient gets exactly `amount` USDC on NEAR (`nep141:17208628…a1`); slippage and fees are on the buyer's side and shown before paying.
 3. Shows the deposit address, a QR code (EIP-681 on EVM chains, Solana Pay, BIP-21) and links that open MetaMask, Coinbase Wallet or Phantom.
-4. Polls the status (`GET /v0/status`) until SUCCESS, REFUNDED or FAILED, then fires `dues:paid` with the NEAR and origin-chain hashes.
+4. Polls the status (`GET /v0/status`) until SUCCESS, REFUNDED or FAILED. Once the payment settles it hides the deposit address so nobody pays it twice, links the deposit, the NEAR delivery and any change returned to the buyer, and fires `dues:paid` with the NEAR and origin-chain hashes.
 
 | Attribute | Meaning |
 |---|---|
@@ -158,11 +160,23 @@ pnpm testnet:flow    # session key, relayed create_invoice, USDC registration, t
 
 The client needs testnet USDC from [faucet.circle.com](https://faucet.circle.com) (network: NEAR testnet). `pnpm testnet:flow` says so and stops if the balance is short; `INVOICE_ID=N pnpm testnet:flow` then pays that invoice.
 
-**1Click has no testnet.** On testnet the any-chain checkout runs in dry mode: real prices, no deposit address. Real testnet payments use "USDC on NEAR".
+**1Click has no testnet.** On testnet the any-chain checkout runs in dry mode: real prices, no deposit address. Real testnet payments use "USDC on NEAR". The any-chain path was proven on mainnet instead, below.
 
-### Mainnet
+---
 
-1Click works on mainnet only. To take a real payment, deploy the contract to a mainnet account, set `NEAR_NETWORK=mainnet` and `NEXT_PUBLIC_CHECKOUT_DRY=false`, and give the API the relayer and watcher keys (see [.env.example](.env.example)). Use small amounts ($1 to $2) for a first test. The widget never needs keys; on mainnet, without `dry`, it shows a real deposit address.
+## Mainnet: a real $2 payment
+
+The checkout button on its own, embedded in a plain HTML page with `<dues-checkout amount="2" to="godswillidolor.near" memo="Order 1042">`, no Dues contract and no keys. The buyer picked USDC on Base, typed a refund address, and sent USDC to the deposit address the widget showed. Recorded in [deployments/mainnet.json](deployments/mainnet.json); the full 1Click status response is the test fixture [fixtures/1click/status-success-mainnet.json](fixtures/1click/status-success-mainnet.json).
+
+| Step | Amount | Transaction |
+|---|---|---|
+| Buyer sends USDC on Base to the deposit address (08:14:48 UTC) | 2.10 USDC (2.025291 quoted) | [0x6c503b35…](https://basescan.org/tx/0x6c503b35fcc772a9bbdf86009c7c01a9bd7b1f8fb29d3c6c3253b402e442a99a) |
+| NEAR Intents delivers USDC on NEAR to `godswillidolor.near` (08:15:15 UTC) | exactly 2.00 USDC | [C7RY5goG…](https://nearblocks.io/txns/C7RY5goGbk4ac35kuWRzqGDUtW1tT2pLG4YsXomgzJZp) |
+| Change returned to the buyer's refund address on Base | 0.092516 USDC | [0x1e925de3…](https://basescan.org/tx/0x1e925de33099e34556aab005b47a6a1bc56cbadabb65461ab9df5cdd276b1ece) |
+
+What it cost the buyer: 2.005084 USDC was used for 2.00 USDC delivered. Most of the 0.005084 is a 0.004677 USDC withdrawal fee, which 1Click quotes only when the recipient is not yet registered with the USDC contract (the same quote to a registered account has none); after the payment the account was registered, with 0.00125 NEAR of storage. The buyer's wallet paid its own Base gas.
+
+The invoice flow (contract, relayer, watcher) is on testnet only. To run it on mainnet, deploy the contract to a mainnet account, set `NEAR_NETWORK=mainnet` and `NEXT_PUBLIC_CHECKOUT_DRY=false`, and give the API the relayer and watcher keys (see [.env.example](.env.example)). The widget never needs keys; without `dry`, it shows a real deposit address.
 
 ---
 
@@ -257,7 +271,7 @@ api                   one router for relayer, watcher and cron; local server and
 app                   Next.js app: landing, /new, /i/?id=N hosted invoice page, /dashboard
 scripts               demo:dry, sandbox, testnet accounts / deploy / flow, deploy-web
 fixtures/1click       token list, a recorded dry quote, recorded status sequences (success, refunded, failed)
-deployments           testnet.json: contract id and every deployment transaction
+deployments           testnet.json: contract id and every deployment transaction; mainnet.json: the $2 payment
 docs/PROBLEM.md       the problem, with sources
 ```
 
@@ -267,7 +281,7 @@ Proposed: the widget and contract are free and open source. Revenue comes from t
 
 ## Sponsors and bounties
 
-None. Everything runs on free infrastructure: NEAR testnet, Circle testnet USDC, the NEAR testnet faucet helper, FastNEAR RPC, NearBlocks, 1Click's public API for dry quotes, Meteor and Intear wallets.
+None. Everything runs on free infrastructure: NEAR testnet, Circle testnet USDC, the NEAR testnet faucet helper, FastNEAR RPC, NearBlocks, 1Click's public API (dry quotes, and the one $2 mainnet payment, paid by the author), Meteor and Intear wallets.
 
 ## Libraries and AI-generated code
 

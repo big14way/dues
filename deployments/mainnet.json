@@ -1,0 +1,29 @@
+{
+  "network": "mainnet",
+  "note": "First real payment through <dues-checkout>: no Dues contract involved, the widget alone with NEAR Intents 1Click.",
+  "payments": [
+    {
+      "date": "2026-11-07",
+      "checkout": { "amount": "2", "to": "godswillidolor.near", "memo": "Order 1042", "pay_with": "USDC on Base" },
+      "one_click": {
+        "swap_type": "EXACT_OUTPUT",
+        "deposit_address": "0x2f25C083AB2f358eFC836A2D6B11733DB1d5f29D",
+        "quoted_amount_in": "2.025291",
+        "status": "SUCCESS",
+        "deposited": "2.1",
+        "used": "2.005084",
+        "delivered": "2.0",
+        "returned_to_payer": "0.092516",
+        "withdraw_fee_usdc": "0.004677",
+        "correlation_id": "a595fa6c-43ec-4250-8ca4-155258630e0a"
+      },
+      "txs": {
+        "base_deposit": "0x6c503b35fcc772a9bbdf86009c7c01a9bd7b1f8fb29d3c6c3253b402e442a99a",
+        "near_delivery": "C7RY5goGbk4ac35kuWRzqGDUtW1tT2pLG4YsXomgzJZp",
+        "base_change_returned": "0x1e925de33099e34556aab005b47a6a1bc56cbadabb65461ab9df5cdd276b1ece"
+      },
+      "timing": { "base_block": "2026-11-07T08:14:48Z", "near_delivery": "2026-11-07T08:15:15.704Z", "seconds": 28 },
+      "recipient_after": { "usdc": "2.0", "usdc_storage_registered_by_1click": true }
+    }
+  ]
+}
