@@ -5,6 +5,8 @@
 //   4. the client pays with testnet USDC on NEAR (ft_transfer_call), forwarded to the freelancer
 //   5. the watcher verifies the client's transaction and records its hash on the invoice
 // Results are appended to deployments/testnet.json. INVOICE_ID=N pays an existing invoice instead.
+// API_BASE=https://<host>/api uses a deployed relayer and watcher instead of local ones, so the
+// hosted deployment is what pays the gas and records the payment.
 // The client needs testnet USDC: https://faucet.circle.com (NEAR testnet) to dues-client.testnet.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -29,19 +31,33 @@ banner(`Dues on NEAR testnet: ${cfg.contract}`);
 const deployment = readDeployment();
 if (!deployment) throw new Error('no deployments/testnet.json: run pnpm deploy:testnet');
 
-const relayerApp = await buildServer({
-  relayer: relayerAccount(cfg.relayer, p),
-  provider: p,
-  policy: defaultPolicy(cfg.contract),
-  usdcId: cfg.usdc,
-});
-await relayerApp.listen({ port: 0, host: '127.0.0.1' });
-const relayerUrl = `http://127.0.0.1:${(relayerApp.server.address() as AddressInfo).port}`;
-const watcherAcc = account(cfg.watcher, p);
-const source = new LiveSource();
-const watcherApp = await buildWatcherServer({ dues: view, watcher: watcherAcc, loop: new Watcher({ dues: view, watcher: watcherAcc, source }), source });
-await watcherApp.listen({ port: 0, host: '127.0.0.1' });
-const watcherUrl = `http://127.0.0.1:${(watcherApp.server.address() as AddressInfo).port}`;
+const apiBase = process.env.API_BASE?.replace(/\/$/, '');
+let relayerUrl: string;
+let watcherUrl: string;
+let close = async () => {};
+if (apiBase) {
+  relayerUrl = `${apiBase}/relayer`;
+  watcherUrl = `${apiBase}/watcher`;
+  info(`using the deployed relayer and watcher at ${apiBase}`);
+} else {
+  const relayerApp = await buildServer({
+    relayer: relayerAccount(cfg.relayer, p),
+    provider: p,
+    policy: defaultPolicy(cfg.contract),
+    usdcId: cfg.usdc,
+  });
+  await relayerApp.listen({ port: 0, host: '127.0.0.1' });
+  relayerUrl = `http://127.0.0.1:${(relayerApp.server.address() as AddressInfo).port}`;
+  const watcherAcc = account(cfg.watcher, p);
+  const source = new LiveSource();
+  const watcherApp = await buildWatcherServer({ dues: view, watcher: watcherAcc, loop: new Watcher({ dues: view, watcher: watcherAcc, source }), source });
+  await watcherApp.listen({ port: 0, host: '127.0.0.1' });
+  watcherUrl = `http://127.0.0.1:${(watcherApp.server.address() as AddressInfo).port}`;
+  close = async () => {
+    await relayerApp.close();
+    await watcherApp.close();
+  };
+}
 
 try {
   let id = process.env.INVOICE_ID ? Number(process.env.INVOICE_ID) : undefined;
@@ -72,7 +88,7 @@ try {
     step(`2. create_invoice through the relayer (${AMOUNT} USDC)`);
     const near0 = BigInt((await p.viewAccount({ accountId: cfg.freelancer })).amount);
     const signed = await signForRelay(session, cfg.contract, 'create_invoice', {
-      title: 'Logo refresh (testnet)',
+      title: process.env.INVOICE_TITLE || 'Logo refresh (testnet)',
       amount_usdc: parseUsdc(AMOUNT),
       due_ts: Date.now() + 7 * 86_400_000,
       client: cfg.client,
@@ -139,6 +155,5 @@ try {
   }
   for (const [k, h] of Object.entries(record)) info(`${k.padEnd(16)} ${link(h)}`);
 } finally {
-  await relayerApp.close();
-  await watcherApp.close();
+  await close();
 }

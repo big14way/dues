@@ -153,6 +153,9 @@ The contract is deployed at **[`dues.testnet`](https://testnet.nearblocks.io/add
 | Relayer registers the freelancer with USDC (0.00125 NEAR, paid by the relayer) | [Cm3m6kz3…](https://testnet.nearblocks.io/txns/Cm3m6kz3N88dmZWc8sitna2ouX8ySdfcDwj4s7AVzH5x) |
 | Client pays invoice #1 with 1.00 testnet USDC on NEAR (`ft_transfer_call`); the contract forwards it to the freelancer in the same transaction and marks the invoice paid | [9paQnDbm…](https://testnet.nearblocks.io/txns/9paQnDbmo9ZFCnAUNuD7Un7x5v1GMLBN3MjnMjvP9RsD) |
 | Watcher reads that transaction, finds the contract's own `invoice_paid` event and records the hash on the invoice | [5Ede8W9q…](https://testnet.nearblocks.io/txns/5Ede8W9q6FocxT9Pqyb3G2obh6AeRfCFmWu7cNDGX82F) |
+| **Through the live site's API** (`sendues.vercel.app/api`, keys held only in Vercel): invoice #2 created as a meta-transaction, gas paid by `dues-relayer.testnet`; the freelancer's NEAR balance did not move | [6oxWf5nx…](https://testnet.nearblocks.io/txns/6oxWf5nxSz1jZ9gA4sJ7cKy8yUCWVuhE5c4tSr2Ttd9M) |
+| Client pays invoice #2 with 2.00 testnet USDC on NEAR | [B5sgJWei…](https://testnet.nearblocks.io/txns/B5sgJWei9YvnaHfxUjwPAsgU91poA8DruZVD5uVAadJt) |
+| The live site's watcher verifies it and records the hash on invoice #2 | [BhCzQUPZ…](https://testnet.nearblocks.io/txns/BhCzQUPZUzCZvGN19bgBwHBwJt98LacgD4UY9cVjo7ZN) |
 
 Reproduce with your own accounts:
 
@@ -160,6 +163,7 @@ Reproduce with your own accounts:
 ACCOUNT_PREFIX=yourname pnpm accounts:testnet   # free accounts via the faucet helper; keys in ~/.near-credentials/testnet
 DUES_CONTRACT=yourname.testnet OWNER_ACCOUNT_ID=yourname-owner.testnet ... pnpm deploy:testnet
 pnpm testnet:flow    # session key, relayed create_invoice, USDC registration, then the client pays
+API_BASE=https://<your-host>/api pnpm testnet:flow   # same, through a deployed relayer and watcher
 ```
 
 The client needs testnet USDC from [faucet.circle.com](https://faucet.circle.com) (network: NEAR testnet). `pnpm testnet:flow` says so and stops if the balance is short; `INVOICE_ID=N pnpm testnet:flow` then pays that invoice.
