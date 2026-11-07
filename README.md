@@ -2,7 +2,7 @@
 
 **One checkout button. Any wallet, any chain. Settles in USDC on NEAR.**
 
-**Live on NEAR testnet:** [getdues-mu.vercel.app](https://getdues-mu.vercel.app). A paid invoice: [invoice #1](https://getdues-mu.vercel.app/i/?id=1). Its freelancer's books: [dashboard](https://getdues-mu.vercel.app/dashboard/?account=dues-freelancer.testnet).
+**Live on NEAR testnet:** [sendues.vercel.app](https://sendues.vercel.app). A paid invoice: [invoice #1](https://sendues.vercel.app/i/?id=1). Its freelancer's books: [dashboard](https://sendues.vercel.app/dashboard/?account=dues-freelancer.testnet).
 
 Dues is two things:
 
