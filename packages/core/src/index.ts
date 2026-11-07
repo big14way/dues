@@ -5,3 +5,4 @@ export * from './oneclick';
 export * from './status';
 export * from './explorers';
 export * from './csv';
+export * from './paylink';
