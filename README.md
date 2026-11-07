@@ -21,6 +21,7 @@ Why it matters, with sources: [docs/PROBLEM.md](docs/PROBLEM.md).
 | Invoice created with no gas for the freelancer, through the live site's relayer | NEAR testnet, [sendues.vercel.app](https://sendues.vercel.app) | [6oxWf5nx…](https://testnet.nearblocks.io/txns/6oxWf5nxSz1jZ9gA4sJ7cKy8yUCWVuhE5c4tSr2Ttd9M) |
 | Invoice paid with USDC on NEAR, forwarded to the freelancer in the same transaction | NEAR testnet | [B5sgJWei…](https://testnet.nearblocks.io/txns/B5sgJWei9YvnaHfxUjwPAsgU91poA8DruZVD5uVAadJt) |
 | Watcher reads the client's transaction and records it on the invoice | NEAR testnet, live site | [BhCzQUPZ…](https://testnet.nearblocks.io/txns/BhCzQUPZUzCZvGN19bgBwHBwJt98LacgD4UY9cVjo7ZN) |
+| Invoice created by an AI agent over MCP with the freelancer's session key, gas paid by the live relayer | NEAR testnet, live relayer | [7Mex2U3e…](https://testnet.nearblocks.io/txns/7Mex2U3e48TsFQA9YzqQJtT8mih8hbrdzXq5eRQYRg63) |
 | Monthly retainer: 3 months prepaid into escrow | NEAR testnet, live site | [8no98haS…](https://testnet.nearblocks.io/txns/8no98haSL5hryHCYDFfZucp2ijPnPXvKxBDoNNd748S7) |
 | Retainer month 1 released by the live site's daily job | NEAR testnet, due Nov 8 00:00 UTC | [invoice #3](https://sendues.vercel.app/i/?id=3) shows it once it runs |
 | Invoice paid from another chain: 1Click quote, deposit, the watcher reads the 1Click status, then `mark_paid` | local sandbox, with a live 1Click quote and a recorded status replay; the watcher's checks also run against the real mainnet status above | `pnpm demo:dry`, `watcher/test` |
@@ -72,7 +73,7 @@ Sign in with the sandbox accounts `ada.sandbox` (freelancer) or `acme.sandbox` (
 ### Checks
 
 ```bash
-pnpm check     # contract build, 17 Rust tests (10 unit, 7 on a sandbox), typecheck of 7 packages, 37 TypeScript tests
+pnpm check     # contract build, 17 Rust tests (10 unit, 7 on a sandbox), typecheck of 8 packages, 46 TypeScript tests
 ```
 
 ---
@@ -112,6 +113,33 @@ What it does, in order:
 Events: `dues:quote`, `dues:status`, `dues:paid`, `dues:error` (bubbling, composed).
 
 **No site? Use a payment link.** [sendues.vercel.app/pay](https://sendues.vercel.app/pay/) turns a NEAR mainnet account and an amount into a hosted checkout, for example [`/pay/?to=godswillidolor.near&amount=2&memo=Order%201042`](https://sendues.vercel.app/pay/?to=godswillidolor.near&amount=2&memo=Order%201042). It checks the account exists on mainnet before it shows a deposit address. Payment links are real money: 1Click runs on mainnet only, so they work while the invoice side of the site runs on testnet. Bundle: `pnpm build:widget` writes `packages/widget/dist/widget.js` (about 83 KB, no dependencies on the host page).
+
+---
+
+## For AI agents (MCP)
+
+Dues is also an [MCP](https://modelcontextprotocol.io) server, so an AI agent can do what the dashboard and the checkout do.
+
+```bash
+# hosted, read-only: no install, no keys
+claude mcp add --transport http dues https://sendues.vercel.app/api/mcp
+
+# local, and allowed to create and cancel invoices for one account
+claude mcp add dues -e DUES_ACCOUNT_ID=you.testnet -e DUES_SESSION_KEY=ed25519:… -- pnpm --silent --dir /path/to/dues mcp
+```
+
+| Tool | Key needed | What it does |
+|---|---|---|
+| `get_invoice` | none | amount, status, due date, line items, link, and every ledger line with its transaction |
+| `list_invoices` | none | invoices an account sent or received, with totals received and outstanding |
+| `invoices_csv` | none | the bookkeeper CSV, as the dashboard exports it |
+| `checkout_quote` | none | what a buyer sends from a chain and token for the recipient to get exactly the amount; dry by default, `live: true` issues a real mainnet deposit address (nothing moves until someone pays it) |
+| `payment_status` | none | where a 1Click payment is, and the deposit and NEAR delivery transactions once paid |
+| `payment_link` | none | a hosted checkout link for a NEAR mainnet account, checked to exist |
+| `create_invoice` | session key | a new invoice or monthly retainer from that account; the relayer pays the gas |
+| `cancel_invoice` | session key | cancels an unpaid invoice from that account |
+
+The session key is the same kind the web app adds for a freelancer: a function-call key that can call `create_invoice` and `cancel` on the Dues contract and nothing else, so an agent holding it can bill clients but cannot move NEAR or USDC. Invoice #4 on `dues.testnet` was created that way, through the live relayer. `pnpm mcp:smoke` starts the server over stdio, as an AI client would, and calls each read tool against testnet, 1Click and NEAR mainnet.
 
 ---
 
@@ -279,6 +307,7 @@ The freelancer's wallet signs exactly one transaction ever: adding the session k
 | `pnpm sandbox` + `pnpm dev` | local chain, API and app to click through |
 | `pnpm api` | the API on :3031 for a real network (reads `.env`) |
 | `pnpm relayer`, `pnpm watcher` | each service on its own |
+| `pnpm mcp`, `pnpm mcp:smoke` | the MCP server over stdio; a live check of its read tools |
 | `pnpm accounts:testnet`, `pnpm deploy:testnet`, `pnpm testnet:flow` | testnet accounts, deployment, one paid invoice (`API_BASE=https://<host>/api` to go through a deployed relayer and watcher; `RETAINER_MONTHS=3 DUE_AT=<ISO time>` for a prepaid retainer) |
 | `CONFIRM_LOCK=yes pnpm lock:testnet` | deletes the contract account's own full-access key (checks `update_contract` is deployed first) |
 | `pnpm deploy:web` | static app plus one serverless function for `/api` on Vercel; Vercel Cron calls `/api/cron/pull` daily |
@@ -295,7 +324,8 @@ packages/core         shared types, money, 1Click client, status mapping, CSV, N
 packages/widget       <dues-checkout> web component and React wrapper
 relayer               meta-transaction relayer and its policy
 watcher               1Click status watcher, client-tx verification, retainer scheduler
-api                   one router for relayer, watcher and cron; local server and Vercel function
+api                   one router for relayer, watcher, cron and /api/mcp; local server and Vercel function
+mcp                   MCP server for AI agents (stdio, and the read-only tools behind /api/mcp)
 app                   Next.js app: landing, /new, /i/?id=N hosted invoice page, /dashboard
 scripts               demo:dry, sandbox, testnet accounts / deploy / flow, deploy-web
 fixtures/1click       token list, a recorded dry quote, recorded status sequences (success, refunded, failed)
@@ -313,7 +343,7 @@ None. Everything runs on free infrastructure: NEAR testnet, Circle testnet USDC,
 
 ## Libraries and AI-generated code
 
-Contract: `near-sdk`, `near-contract-standards`; tests: `near-workspaces`, `tokio`, `serde_json`, `anyhow`. TypeScript: `near-api-js` (7.4, and 6.5.1 only for the Meteor wallet SDK), `near-sandbox`, `fastify`, `@fastify/cors`, `borsh`, `qrcode`, `tsx`, `typescript`, `vitest`, `esbuild`. App: `next`, `react`, `tailwindcss`, `@near-wallet-selector/core`, `@near-wallet-selector/meteor-wallet`, `@near-wallet-selector/intear-wallet`, `@near-js/crypto`, Inter and JetBrains Mono (Google Fonts, OFL). Build: `cargo-near`.
+Contract: `near-sdk`, `near-contract-standards`; tests: `near-workspaces`, `tokio`, `serde_json`, `anyhow`. TypeScript: `near-api-js` (7.4, and 6.5.1 only for the Meteor wallet SDK), `near-sandbox`, `fastify`, `@fastify/cors`, `borsh`, `qrcode`, `tsx`, `typescript`, `vitest`, `esbuild`, `@modelcontextprotocol/sdk`, `zod`. App: `next`, `react`, `tailwindcss`, `@near-wallet-selector/core`, `@near-wallet-selector/meteor-wallet`, `@near-wallet-selector/intear-wallet`, `@near-js/crypto`, Inter and JetBrains Mono (Google Fonts, OFL). Build: `cargo-near`.
 
 Much of the code in this repository was written with AI coding assistants under the author's direction, and was reviewed and tested by the author.
 
