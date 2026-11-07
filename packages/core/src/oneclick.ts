@@ -89,7 +89,8 @@ export interface SwapDetails {
   refundedAmount?: string;
   refundedAmountFormatted?: string;
   refundedAmountUsd?: string;
-  refundReason?: string;
+  /** null when nothing was refunded (seen on a real mainnet payment). */
+  refundReason?: string | null;
   depositedAmount?: string;
   depositedAmountFormatted?: string;
   depositedAmountUsd?: string;

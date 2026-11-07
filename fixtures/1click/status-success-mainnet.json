@@ -1,0 +1,97 @@
+{
+  "status": "SUCCESS",
+  "updatedAt": "2026-11-07T08:15:35.000Z",
+  "correlationId": "afebdb34-1fb0-4aa3-accf-9a19aed18d8b",
+  "swapDetails": {
+    "depositedAmount": "2100000",
+    "depositedAmountUsd": "2.099252400000",
+    "depositedAmountFormatted": "2.1",
+    "intentHashes": [
+      "3opH3FwB1beWVEWBCQg93BoyShawxjdZmS31xutYqvJq",
+      "8xQ1zWZBDeSgCgnJRuLoA5e2CNRMM32CNKNWH6SzXZno",
+      "41Rgih9NxAJy6JxN6YahStMHc26idagpYWso3LfFHieX"
+    ],
+    "nearTxHashes": [
+      "E3db5Po3SeKVbYyfC4fJEghafpwdP2QNqzcg6tAvjGLi",
+      "J36rVnSFzLMyC98CAVPxrVNMzSPaLvjhqiETVGDv89xj",
+      "CgiaHgjViEHupi2E22N1EizzKzMTd4B7V8xZFaTUJxuE",
+      "C7RY5goGbk4ac35kuWRzqGDUtW1tT2pLG4YsXomgzJZp",
+      "EAn6YeMpMCeQANqJSERLvYuqDC8fLYro5NhWCrHGMMjg"
+    ],
+    "amountIn": "2005084",
+    "amountInFormatted": "2.005084",
+    "amountInUsd": "2.004370190096",
+    "amountOut": "2000000",
+    "amountOutFormatted": "2.0",
+    "amountOutUsd": "1.999288000000",
+    "slippage": 0,
+    "refundedAmount": "92516",
+    "refundedAmountFormatted": "0.092516",
+    "refundedAmountUsd": "0.092483064304",
+    "refundReason": null,
+    "refundFee": "2400",
+    "withdrawFee": "4677",
+    "originChainTxHashes": [
+      {
+        "hash": "0x6c503b35fcc772a9bbdf86009c7c01a9bd7b1f8fb29d3c6c3253b402e442a99a",
+        "explorerUrl": ""
+      }
+    ],
+    "destinationChainTxHashes": [
+      {
+        "hash": "C7RY5goGbk4ac35kuWRzqGDUtW1tT2pLG4YsXomgzJZp",
+        "explorerUrl": ""
+      },
+      {
+        "hash": "0x1e925de33099e34556aab005b47a6a1bc56cbadabb65461ab9df5cdd276b1ece",
+        "explorerUrl": ""
+      }
+    ]
+  },
+  "quoteResponse": {
+    "timestamp": "2026-11-07T08:09:32.785Z",
+    "signature": "ed25519:4ukBH9GsdHmgg6ZrzUyvyhdFGsybNgGwoZpyKRbs7RLcz3dktLLdts4Vt36d3Uq57j7gecVtNkzz7ER2avobmMWj",
+    "quoteRequest": {
+      "dry": false,
+      "swapType": "EXACT_OUTPUT",
+      "depositMode": "SIMPLE",
+      "slippageTolerance": 100,
+      "originAsset": "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+      "depositType": "ORIGIN_CHAIN",
+      "destinationAsset": "nep141:17208628f84f5d6ad33f0da3bbbeb27ffcb398eac501a31bd6ad2011e36133a1",
+      "amount": "2000000",
+      "refundTo": "0xfDb941fe97e13B599BC576c4142128aB97D01622",
+      "refundType": "ORIGIN_CHAIN",
+      "recipient": "godswillidolor.near",
+      "recipientType": "DESTINATION_CHAIN",
+      "deadline": "2026-11-07T09:09:32.226Z",
+      "appFees": [
+        {
+          "limitOrderId": null,
+          "recipient": "5880ad2b362620fadf759cbceb1cd5737ce8c6ed7fb8e9942881e6731f9247dd",
+          "fee": 1
+        }
+      ],
+      "virtualChainRecipient": null,
+      "virtualChainRefundRecipient": null,
+      "referral": "dues",
+      "confidentiality": "public"
+    },
+    "quote": {
+      "amountIn": "2025291",
+      "amountInFormatted": "2.025291",
+      "amountInUsd": "2.024703665610",
+      "minAmountIn": "2005084",
+      "amountOut": "2000000",
+      "amountOutFormatted": "2.0",
+      "amountOutUsd": "1.999420000000",
+      "minAmountOut": "2000000",
+      "timeWhenInactive": "2026-11-10T09:09:32.226Z",
+      "depositAddress": "0x2f25C083AB2f358eFC836A2D6B11733DB1d5f29D",
+      "deadline": "2026-11-10T09:09:32.226Z",
+      "timeEstimate": 35,
+      "refundFee": "2400",
+      "withdrawFee": "4677"
+    }
+  }
+}

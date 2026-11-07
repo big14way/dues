@@ -136,3 +136,18 @@ export function refundPlaceholder(chain: string): string {
       return 'Your address on this chain';
   }
 }
+
+/**
+ * "10:09 (45 min)" today, or "Mon 10 Nov, 10:09 (3 days)" further out. 1Click
+ * may keep a deposit address open for days, so a bare time of day misleads.
+ */
+export function formatDeadline(deadline: Date, now: Date = new Date()): string {
+  const left = deadline.getTime() - now.getTime();
+  if (left <= 0) return 'expired: get new details';
+  const mins = Math.ceil(left / 60_000);
+  const rel = mins < 120 ? `${mins} min` : mins < 48 * 60 ? `${Math.round(mins / 60)} h` : `${Math.round(mins / 1440)} days`;
+  const time = deadline.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const sameDay = deadline.toDateString() === now.toDateString();
+  const when = sameDay ? time : `${deadline.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' })}, ${time}`;
+  return `${when} (${rel})`;
+}

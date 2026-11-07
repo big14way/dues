@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { USDC_NEAR_ASSET_ID } from '@dues/core';
-import { buildQuoteRequest, dryRecipient, mapQuote } from '../src/quote';
-import { paymentUri } from '../src/links';
+import { buildQuoteRequest, dryRecipient, formatDeadline, mapQuote } from '../src/quote';
+import { paymentUri, receiptOf } from '../src/links';
+import paidMainnet from '../../../fixtures/1click/status-success-mainnet.json';
 import { FALLBACK_TOKENS, chainsOf, tokensOn } from '../src/tokens';
 import quote from '../../../fixtures/1click/quote-dry.json';
 
@@ -60,5 +61,32 @@ describe('token list', () => {
     expect(chains.slice(0, 3)).toEqual(['base', 'eth', 'sol']);
     expect(tokensOn(FALLBACK_TOKENS, 'base')[0]?.symbol).toBe('USDC');
     expect(FALLBACK_TOKENS.length).toBeGreaterThan(100);
+  });
+});
+
+describe('receipt after a real payment', () => {
+  // Recorded from a $2 mainnet payment: 2.1 USDC sent on Base, 2.00 USDC delivered on NEAR, the rest returned.
+  const r = receiptOf(paidMainnet.swapDetails, 'base');
+
+  it('links the deposit on Base and the delivery on NEAR', () => {
+    expect(r.origin?.url).toBe(`https://basescan.org/tx/${paidMainnet.swapDetails.originChainTxHashes[0]!.hash}`);
+    expect(r.delivery?.hash).toMatch(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/);
+    expect(r.delivery?.url).toBe(`https://nearblocks.io/txns/${r.delivery?.hash}`);
+  });
+
+  it('shows the change sent back to the payer as a Base transaction, not as the delivery', () => {
+    expect(r.returned?.amount).toBe(paidMainnet.swapDetails.refundedAmountFormatted);
+    expect(r.returned?.hash.startsWith('0x')).toBe(true);
+    expect(r.returned?.url).toBe(`https://basescan.org/tx/${r.returned?.hash}`);
+  });
+});
+
+describe('deadline', () => {
+  const now = new Date('2026-11-07T08:09:33Z');
+  it('counts minutes when close, days when far, and says when it expired', () => {
+    expect(formatDeadline(new Date(now.getTime() + 45 * 60_000), now)).toMatch(/\(45 min\)$/);
+    expect(formatDeadline(new Date(now.getTime() + 5 * 3600_000), now)).toMatch(/\(5 h\)$/);
+    expect(formatDeadline(new Date('2026-11-10T09:09:32Z'), now)).toMatch(/, .*\(3 days\)$/);
+    expect(formatDeadline(new Date(now.getTime() - 1000), now)).toBe('expired: get new details');
   });
 });

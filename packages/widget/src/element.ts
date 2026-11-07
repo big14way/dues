@@ -10,8 +10,16 @@ import {
   type QuoteResponse,
   type StatusResponse,
 } from '@dues/core';
-import { paymentUri, walletLinks } from './links';
-import { buildQuoteRequest, dryRecipient, mapQuote, refundPlaceholder, sampleRefundFor, type QuoteView } from './quote';
+import { paymentUri, receiptOf, walletLinks } from './links';
+import {
+  buildQuoteRequest,
+  dryRecipient,
+  formatDeadline,
+  mapQuote,
+  refundPlaceholder,
+  sampleRefundFor,
+  type QuoteView,
+} from './quote';
 import { chainName, chainsOf, loadTokens, tokensOn } from './tokens';
 
 export interface QuoteDetail {
@@ -91,6 +99,10 @@ ol.steps li.done { color: var(--dues-fg); } ol.steps li.done::before { backgroun
 ol.steps li.now { color: var(--dues-fg); font-weight: 600; } ol.steps li.now::before { border-color: var(--dues-accent); }
 .paid { margin-top: 14px; padding: 12px; border-radius: 10px; background: var(--dues-soft); }
 .paid strong { color: var(--dues-accent); }
+.receipt { display: grid; gap: 4px; margin-top: 8px; font-size: 12.5px; }
+.receipt a { color: var(--dues-accent); text-decoration: none; }
+.receipt a:hover { text-decoration: underline; }
+.receipt span { color: var(--dues-muted); }
 .foot { margin-top: 14px; color: var(--dues-muted); font-size: 11.5px; text-align: center; }
 .hidden { display: none !important; }
 `;
@@ -111,6 +123,7 @@ const TEMPLATE = `
     <div class="err hidden" role="alert" data-err></div>
   </form>
   <section class="quote hidden" data-quote aria-live="polite">
+    <div data-instr>
     <div class="send">Send <b data-pay></b> <span data-paysym></span> on <span data-paychain></span></div>
     <div class="kv"><span>Recipient gets</span><span data-receive></span></div>
     <div class="kv"><span>Conversion cost</span><span data-fee></span></div>
@@ -120,6 +133,7 @@ const TEMPLATE = `
     <div class="addr"><code data-addr></code><button class="ghost" type="button" data-copy>Copy</button></div>
     <div class="kv hidden" data-memo-row><span>Memo (required)</span><code data-dmemo></code></div>
     <div class="links" data-links></div>
+    </div>
     <ol class="steps" data-steps></ol>
     <div class="paid hidden" data-paid></div>
   </section>
@@ -154,6 +168,8 @@ export class DuesCheckout extends HTMLElement {
   private poll?: ReturnType<typeof setInterval>;
   private tick?: ReturnType<typeof setInterval>;
   private done = false;
+  private payChain = '';
+  private paySymbol = '';
 
   constructor() {
     super();
@@ -359,6 +375,10 @@ export class DuesCheckout extends HTMLElement {
   private async renderQuote(view: QuoteView, token: OneClickToken, depositAddress: string) {
     const s = this.shadow;
     q(s, '[data-quote]').classList.remove('hidden');
+    q(s, '[data-instr]').classList.remove('hidden');
+    q(s, '[data-form]').classList.remove('hidden');
+    this.payChain = token.blockchain;
+    this.paySymbol = token.symbol;
     q(s, '[data-pay]').textContent = view.pay;
     q(s, '[data-paysym]').textContent = token.symbol;
     q(s, '[data-paychain]').textContent = chainName(token.blockchain);
@@ -376,9 +396,7 @@ export class DuesCheckout extends HTMLElement {
         deadlineEl.textContent = view.dry ? 'not issued (dry run)' : '—';
         return;
       }
-      const left = deadline.getTime() - Date.now();
-      deadlineEl.textContent =
-        left <= 0 ? 'expired: get new details' : `${deadline.toLocaleTimeString()} (${Math.ceil(left / 60_000)} min)`;
+      deadlineEl.textContent = formatDeadline(deadline);
     };
     paint();
     this.tick = setInterval(paint, 30_000);
@@ -457,6 +475,8 @@ export class DuesCheckout extends HTMLElement {
       const m = mapStatus(shown);
       if (m.final) {
         this.stopTimers();
+        // The deposit address is spent or dead: stop showing it so nobody pays it again.
+        q(this.shadow, '[data-instr]').classList.add('hidden');
         if (shown === 'SUCCESS') this.paid(depositAddress, res);
         else this.showFinal(m.label);
       }
@@ -513,6 +533,34 @@ export class DuesCheckout extends HTMLElement {
           : `${amount} USDC delivered to ${this.to} on NEAR.`,
       ),
     );
+    if (!this.dry && res) {
+      // A real payment: link both sides, and any change sent back to the payer.
+      q(this.shadow, '[data-form]').classList.add('hidden');
+      const r = receiptOf(res.swapDetails, this.payChain);
+      const list = document.createElement('div');
+      list.className = 'receipt';
+      const line = (label: string, url?: string, note?: string) => {
+        const row = document.createElement('div');
+        if (url) {
+          const a = document.createElement('a');
+          a.href = url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.textContent = `${label} ↗`;
+          row.append(a);
+        } else row.append(label);
+        if (note) {
+          const span = document.createElement('span');
+          span.textContent = ` ${note}`;
+          row.append(span);
+        }
+        list.append(row);
+      };
+      if (r.origin) line(`Payment on ${chainName(this.payChain)}`, r.origin.url);
+      if (r.delivery) line('Delivery on NEAR', r.delivery.url);
+      if (r.returned) line(`${r.returned.amount} ${this.paySymbol} extra returned`, r.returned.url, 'to your refund address');
+      if (list.childElementCount) box.append(list);
+    }
     box.classList.remove('hidden');
     const detail: PaidDetail = {
       depositAddress,
