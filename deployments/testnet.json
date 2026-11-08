@@ -47,7 +47,8 @@
       "txs": {
         "create_invoice": "FUWqtwqygbmo3xLftSedgGAAS7nuWhMHAqGRpAeWfEdH",
         "pay": "8no98haSL5hryHCYDFfZucp2ijPnPXvKxBDoNNd748S7",
-        "annotate": "uc2Xec42qxG8ypJBF6QQEnKqTJASsvTTMKFzLegN9mP"
+        "annotate": "uc2Xec42qxG8ypJBF6QQEnKqTJASsvTTMKFzLegN9mP",
+        "pull_month_1": "AwtkxJ9sBfteWYERccE2YT2pTePZ3dbvSdPTWLcVVPKN"
       },
       "recorded_at": "2026-11-07T09:40:17.053Z"
     },

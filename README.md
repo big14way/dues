@@ -26,7 +26,7 @@ Why it matters, with sources: [docs/PROBLEM.md](docs/PROBLEM.md).
 | A second invoice created over MCP with the session key (invoice #6) | NEAR testnet, live relayer | [2Z75QBg4…](https://testnet.nearblocks.io/txns/2Z75QBg4dvjcCKdnPwjQADVy1BUtwgkApBdd1vQJtuy9) |
 | Relayer refuses to pay for moving USDC, `mark_paid`, an attached deposit, or a tampered signature; its balance does not move | NEAR testnet, live relayer | `pnpm relayer:check` (5/5 on Nov 7) |
 | Monthly retainer: 3 months prepaid into escrow | NEAR testnet, live site | [8no98haS…](https://testnet.nearblocks.io/txns/8no98haSL5hryHCYDFfZucp2ijPnPXvKxBDoNNd748S7) |
-| Retainer month 1 released by the live site's daily job | NEAR testnet, due Nov 8 00:00 UTC | [invoice #3](https://sendues.vercel.app/i/?id=3) shows it once it runs |
+| Retainer month 1 (1.00 USDC) released to the freelancer by the live site's daily job, in a `pull` signed by `dues-watcher.testnet` (`pull` pays only the freelancer, so anyone may call it); 2 months stay in escrow | NEAR testnet, live site, Nov 8 01:02 UTC | [AwtkxJ9s…](https://testnet.nearblocks.io/txns/AwtkxJ9sBfteWYERccE2YT2pTePZ3dbvSdPTWLcVVPKN) |
 | Invoice paid from another chain: 1Click quote, deposit, the watcher reads the 1Click status, then `mark_paid` | local sandbox, with a live 1Click quote and a recorded status replay; the watcher's checks also run against the real mainnet status above | `pnpm demo:dry`, `watcher/test` |
 | Refund of a 1Click payment that cannot complete | local sandbox, recorded status | `pnpm demo:dry` |
 
