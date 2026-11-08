@@ -4,6 +4,8 @@
 
 **Live on NEAR testnet:** [sendues.vercel.app](https://sendues.vercel.app). A paid invoice: [invoice #1](https://sendues.vercel.app/i/?id=1). Its freelancer's books: [dashboard](https://sendues.vercel.app/dashboard/?account=dues-freelancer.testnet).
 
+**Demo video (3:59, narrated):** [on X](https://x.com/Big14teru/status/2119489118019240330). Launch post with a 30-second ad: [x.com/Big14teru/status/2119489110675247362](https://x.com/Big14teru/status/2119489110675247362).
+
 Dues is two things:
 
 1. **`<dues-checkout>`**, a checkout button any website can embed with one script tag. The buyer pays with whatever they hold (USDC on Base, SOL, ETH, USDT on Tron: 200+ tokens on 30+ chains) through [NEAR Intents 1Click](https://docs.near-intents.org). The seller receives exactly the amount asked for, in USDC on NEAR.
