@@ -69,5 +69,9 @@
       },
       "recorded_at": "2026-11-07T21:13:43.700Z"
     }
-  ]
+  ],
+  "locked": {
+    "tx": "EHwvy7tT7j4gr9zLKaFadVs5NbuCMEGa5ieMWGF52NsW",
+    "recorded_at": "2026-11-08T14:13:52.994Z"
+  }
 }
